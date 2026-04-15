@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<script>
+  // Redirect 404s back to index with the hash intact
+  const path = window.location.pathname.replace('/ebc-session-builder','');
+  window.location.replace('/ebc-session-builder/' + window.location.search + window.location.hash);
+</script>
+</head>
+<body></body>
+</html>

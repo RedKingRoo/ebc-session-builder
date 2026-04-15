@@ -1,0 +1,2887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EBC Session Builder V2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+<style>
+/* ================================================================
+   DESIGN TOKENS
+================================================================ */
+:root {
+  --bg:         #0d1117;
+  --bg-card:    #161b22;
+  --bg-raised:  #21262d;
+  --bg-hover:   #2a333d;
+  --border:     #30363d;
+  --border-dim: #21262d;
+
+  --text:       #e6edf3;
+  --text-2:     #8b949e;
+  --text-3:     #484f58;
+
+  --amber:      #f0a030;
+  --amber-bg:   rgba(240,160,48,.12);
+  --amber-bdr:  rgba(240,160,48,.3);
+  --blue:       #58a6ff;
+  --blue-bg:    rgba(88,166,255,.1);
+  --blue-bdr:   rgba(88,166,255,.35);
+  --green:      #3fb950;
+  --green-bg:   rgba(63,185,80,.1);
+  --green-bdr:  rgba(63,185,80,.35);
+  --purple:     #bc8cff;
+  --purple-bg:  rgba(188,140,255,.1);
+  --purple-bdr: rgba(188,140,255,.35);
+  --red:        #f85149;
+  --red-bg:     rgba(248,81,73,.1);
+  --orange:     #d29922;
+  --orange-bg:  rgba(210,153,34,.1);
+
+  --r:    6px;
+  --r-lg: 12px;
+  --shadow: 0 8px 24px rgba(0,0,0,.6);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.4);
+}
+
+/* ================================================================
+   RESET + BASE
+================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+}
+h1,h2,h3,h4 {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+button  { cursor: pointer; border: none; background: none; font-family: inherit; font-size: inherit; }
+input, textarea, select {
+  font-family: inherit; font-size: inherit;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--r); padding: 5px 9px; outline: none;
+  transition: border-color .15s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--amber); }
+textarea { resize: vertical; }
+[contenteditable] { outline: none; }
+a { color: var(--blue); }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+::placeholder { color: var(--text-3); }
+
+/* ================================================================
+   BUTTONS
+================================================================ */
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 30px; padding: 0 11px; border-radius: var(--r);
+  font-size: 12.5px; font-weight: 500; transition: all .15s;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--amber); color: #000 !important; }
+.btn-primary:hover { background: #ffb74d; }
+.btn-ghost { border: 1px solid var(--border); color: var(--text-2); }
+.btn-ghost:hover { border-color: var(--text-2); color: var(--text); background: var(--bg-raised); }
+.btn-danger { border: 1px solid var(--border); color: var(--text-3); }
+.btn-danger:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+.btn-icon {
+  width: 26px; height: 26px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r); color: var(--text-3); font-size: 13px;
+  transition: all .15s;
+}
+.btn-icon:hover { background: var(--bg-raised); color: var(--text-2); }
+
+/* ================================================================
+   LAYOUT
+================================================================ */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Header ── */
+.app-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px; height: 50px; flex-shrink: 0;
+  background: var(--bg-card); border-bottom: 1px solid var(--border);
+  z-index: 20;
+}
+.logo-badge {
+  background: var(--amber); color: #000;
+  font-family: 'Oswald', sans-serif; font-weight: 700;
+  font-size: 13px; letter-spacing: .1em;
+  padding: 3px 8px; border-radius: 4px; flex-shrink: 0;
+}
+.session-title {
+  font-family: 'Oswald', sans-serif; font-size: 16px;
+  font-weight: 600; padding: 2px 5px; border-radius: 4px;
+  border: 1px solid transparent; min-width: 40px;
+  transition: border-color .15s;
+}
+.session-title:hover { border-color: var(--border); }
+.session-title:focus { border-color: var(--amber); background: var(--bg-raised); }
+.header-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+.header-field {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-2);
+}
+.header-field label { white-space: nowrap; }
+.header-field input { height: 28px; font-size: 12px; }
+.live-clock {
+  font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 500;
+  color: var(--amber); letter-spacing: .06em; min-width: 52px;
+  text-align: center; flex-shrink: 0;
+}
+.header-actions { display: flex; gap: 6px; margin-left: auto; }
+
+/* ── Body ── */
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 248px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+.card-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 11px 7px; border-bottom: 1px solid var(--border);
+}
+.card-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--text-3);
+}
+.card-bd { padding: 10px 11px; }
+
+/* Field Priority */
+.priority-toggle {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
+  background: var(--bg); border-radius: 5px; padding: 3px;
+}
+.priority-btn {
+  padding: 5px 0; text-align: center; border-radius: 4px;
+  font-family: 'Oswald', sans-serif; font-size: 13px;
+  font-weight: 600; letter-spacing: .05em; color: var(--text-2);
+  transition: all .2s;
+}
+.priority-btn.active { background: var(--amber); color: #000; }
+.priority-btn:not(.active):hover { background: var(--bg-hover); color: var(--text); }
+
+/* Equipment */
+.equip-list { display: flex; flex-direction: column; gap: 5px; }
+.equip-row { display: flex; align-items: center; gap: 6px; }
+.equip-name { font-size: 12px; color: var(--text-2); flex: 1; }
+.equip-chip {
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; cursor: pointer; transition: all .15s;
+  border: 1px solid transparent; white-space: nowrap; letter-spacing: .02em;
+}
+.equip-chip[data-s="Main Field"]  { background: var(--green-bg);  color: var(--green);  border-color: var(--green-bdr); }
+.equip-chip[data-s="Off-Field"]   { background: var(--blue-bg);   color: var(--blue);   border-color: var(--blue-bdr); }
+.equip-chip[data-s="Bullpen"]     { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-bdr); }
+.equip-chip[data-s="Shared"]      { background: var(--amber-bg);  color: var(--amber);  border-color: var(--amber-bdr); }
+.equip-chip[data-s="Not in use"]  { background: var(--bg-raised); color: var(--text-3); border-color: var(--border); }
+
+/* Warmup */
+.warmup-dur-row { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+.warmup-dur-row label { font-size: 12px; color: var(--text-2); }
+.warmup-dur-row input { width: 52px; text-align: center; }
+.warmup-dur-row span { font-size: 12px; color: var(--text-3); }
+#warmupNotes { width: 100%; font-size: 12px; min-height: 58px; }
+
+/* Session notes */
+#sessionNotes { width: 100%; font-size: 12px; min-height: 58px; }
+
+/* ── Columns area ── */
+.columns-area {
+  flex: 1; display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+}
+.group-col {
+  display: flex; flex-direction: column; overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.group-col:last-child { border-right: none; }
+
+.group-col-hd {
+  flex-shrink: 0; padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.group-col-hd.field   { background: linear-gradient(135deg, rgba(63,185,80,.05) 0%, transparent 50%); }
+.group-col-hd.offField { background: linear-gradient(135deg, rgba(88,166,255,.05) 0%, transparent 50%); }
+.group-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.field   .group-dot { background: var(--green); }
+.offField .group-dot { background: var(--blue); }
+.group-col-name {
+  font-family: 'Oswald', sans-serif; font-size: 13px;
+  font-weight: 600; letter-spacing: .05em; flex: 1;
+}
+.group-team-tag {
+  font-size: 10px; color: var(--text-3); background: var(--bg-raised);
+  padding: 2px 7px; border-radius: 8px; white-space: nowrap;
+}
+
+/* Timeline bar */
+.timeline-wrap {
+  flex-shrink: 0; padding: 7px 12px 6px;
+  border-bottom: 1px solid var(--border-dim);
+  background: rgba(0,0,0,.15);
+}
+.timeline-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text-3); margin-bottom: 4px;
+}
+.timeline-labels .over { color: var(--red); font-weight: 600; }
+.timeline-track {
+  height: 5px; background: var(--bg-raised);
+  border-radius: 3px; overflow: hidden; position: relative;
+}
+.timeline-fill {
+  height: 100%; border-radius: 3px;
+  transition: width .4s ease;
+}
+.group-col.field   .timeline-fill { background: var(--green); }
+.group-col.offField .timeline-fill { background: var(--blue); }
+.timeline-over .timeline-fill { background: var(--red) !important; }
+
+/* Drill list */
+.drill-list {
+  flex: 1; overflow-y: auto;
+  padding: 8px; display: flex; flex-direction: column; gap: 5px;
+}
+.drill-list-empty {
+  text-align: center; padding: 28px 14px;
+  color: var(--text-3); font-size: 12px; line-height: 1.8;
+}
+.add-drill-btn-wrap { padding: 0 8px 8px; flex-shrink: 0; }
+.add-drill-btn {
+  width: 100%; padding: 8px 0; display: flex;
+  align-items: center; justify-content: center; gap: 6px;
+  border: 1.5px dashed var(--border); border-radius: var(--r);
+  color: var(--text-3); font-size: 12.5px; font-weight: 500;
+  cursor: pointer; transition: all .2s; background: none;
+}
+.add-drill-btn:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+
+/* Drill card */
+.drill-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 9px 10px;
+  transition: border-color .15s;
+}
+.drill-card:hover { border-color: var(--bg-hover); }
+.drill-card-top {
+  display: flex; align-items: flex-start;
+  gap: 7px; margin-bottom: 7px;
+}
+.drill-card-name { font-size: 13px; font-weight: 600; flex: 1; line-height: 1.3; }
+.drill-card-actions { display: flex; gap: 1px; flex-shrink: 0; }
+.cat-badge {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; padding: 2px 6px; border-radius: 3px;
+  display: inline-block; white-space: nowrap;
+}
+.cat-Hitting  { background: var(--orange-bg); color: var(--orange); }
+.cat-Infield  { background: var(--green-bg);  color: var(--green); }
+.cat-Outfield { background: var(--blue-bg);   color: var(--blue); }
+.cat-Pitching { background: var(--red-bg);    color: var(--red); }
+.cat-Catching { background: var(--purple-bg); color: var(--purple); }
+.cat-Custom   { background: var(--amber-bg);  color: var(--amber); }
+
+.drill-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.meta-field { display: flex; align-items: center; gap: 4px; }
+.meta-field label { font-size: 10.5px; color: var(--text-3); white-space: nowrap; }
+.drill-dur {
+  width: 46px; height: 25px; padding: 0 5px;
+  font-size: 13px; font-weight: 600; text-align: center;
+}
+.drill-start {
+  width: 68px; height: 25px; padding: 0 5px;
+  font-size: 11.5px; text-align: center; color: var(--text-2);
+}
+.video-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; cursor: pointer; transition: all .15s;
+  background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bdr);
+}
+.video-pill:hover { background: rgba(240,160,48,.22); }
+.drill-notes {
+  width: 100%; margin-top: 6px; font-size: 11.5px;
+  padding: 4px 8px; min-height: 30px;
+  background: var(--bg); border: 1px solid transparent; color: var(--text-2);
+  border-radius: var(--r);
+}
+.drill-notes:focus, .drill-notes:not(:placeholder-shown) { border-color: var(--border); }
+
+/* ── Bullpen bar ── */
+.bullpen-bar {
+  flex-shrink: 0; background: var(--bg-card);
+  border-top: 1px solid var(--border); height: 210px;
+  display: flex; flex-direction: column; transition: height .3s ease;
+}
+.bullpen-bar.collapsed { height: 36px; overflow: hidden; }
+.bullpen-hd {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.bullpen-hd-title {
+  font-family: 'Oswald', sans-serif; font-size: 12px;
+  font-weight: 600; letter-spacing: .06em;
+}
+.bullpen-toggle { font-size: 11px; color: var(--text-3); margin-left: auto; cursor: pointer; padding: 2px 6px; }
+.bullpen-toggle:hover { color: var(--text-2); }
+
+/* Split body */
+.bullpen-body { flex: 1; display: flex; overflow: hidden; }
+
+/* Left — requests */
+.bp-requests {
+  width: 50%; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.bp-panel-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 10px 4px; border-bottom: 1px solid var(--border-dim);
+  flex-shrink: 0;
+}
+.bp-panel-title {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--text-3);
+}
+.bp-count {
+  font-size: 10px; color: var(--text-3); background: var(--bg-raised);
+  padding: 1px 6px; border-radius: 8px;
+}
+.bp-req-list {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 6px 8px; display: flex; flex-direction: column; gap: 5px;
+}
+.bp-req-empty { font-size: 11.5px; color: var(--text-3); padding: 8px 2px; line-height: 1.6; }
+.bp-req-card {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 6px 8px;
+  display: flex; align-items: flex-start; gap: 7px;
+}
+.bp-req-card.allocated { opacity: .45; }
+.bp-req-info { flex: 1; min-width: 0; }
+.bp-req-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bp-req-detail { font-size: 10.5px; color: var(--text-3); margin-top: 1px; }
+.bp-req-type {
+  font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+  white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+}
+.bp-req-type.pitching { background: var(--red-bg); color: var(--red); }
+.bp-req-type.catching { background: var(--purple-bg); color: var(--purple); }
+.bp-req-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.bp-add-req-btn {
+  width: 100%; padding: 5px 0; border: none;
+  background: none; color: var(--text-3); font-size: 11px; font-weight: 500;
+  cursor: pointer; border-top: 1px solid var(--border-dim);
+  transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 4px;
+  flex-shrink: 0;
+}
+.bp-add-req-btn:hover { color: var(--purple); background: var(--purple-bg); }
+
+/* Right — allocated slots */
+.bp-slots {
+  width: 50%; display: flex; flex-direction: column; overflow: hidden;
+}
+.bp-slot-list {
+  flex: 1; overflow-y: auto; padding: 4px 8px; display: flex; flex-direction: column; gap: 4px;
+}
+.bp-slot-row {
+  background: var(--bg-raised); border: 1px solid var(--border-dim);
+  border-radius: var(--r); padding: 5px 7px; display: flex; gap: 7px; align-items: flex-start;
+}
+.bp-slot-time {
+  font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 600;
+  color: var(--amber); width: 38px; flex-shrink: 0; padding-top: 3px;
+}
+.bp-slot-subs { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.bp-slot-sub {
+  display: flex; align-items: center; gap: 5px;
+}
+.bp-slot-sub-role {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  width: 22px; flex-shrink: 0;
+}
+.bp-slot-sub-role.p { color: var(--red); }
+.bp-slot-sub-role.c { color: var(--purple); }
+.bp-slot-sub-name { font-size: 11.5px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bp-slot-sub-empty { font-size: 11px; color: var(--text-3); font-style: italic; flex: 1; }
+.bp-slot-assign-btn {
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px;
+  background: var(--bg-raised); color: var(--text-3); border: 1px solid var(--border);
+  cursor: pointer; flex-shrink: 0; transition: all .12s;
+}
+.bp-slot-assign-btn:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+.bp-slot-clear-btn {
+  font-size: 10px; padding: 1px 5px; border-radius: 3px;
+  background: none; color: var(--text-3); border: 1px solid transparent;
+  cursor: pointer; flex-shrink: 0; transition: all .12s;
+}
+.bp-slot-clear-btn:hover { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+
+/* Firebase status */
+.fb-status {
+  font-size: 10.5px; display: flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 8px; white-space: nowrap;
+}
+.fb-status.connected  { background: var(--green-bg);  color: var(--green); }
+.fb-status.error      { background: var(--red-bg);    color: var(--red); }
+.fb-status.idle       { background: var(--bg-raised);  color: var(--text-3); }
+.fb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* ================================================================
+   MODALS
+================================================================ */
+.backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.72);
+  z-index: 100; display: none;
+  align-items: flex-start; justify-content: flex-end;
+}
+.backdrop.open { display: flex; }
+.backdrop.centered { justify-content: center; align-items: center; }
+
+.panel {
+  background: var(--bg-card); border-left: 1px solid var(--border);
+  height: 100vh; width: 350px; display: flex;
+  flex-direction: column; animation: slideIn .2s ease;
+}
+.panel-center {
+  border: 1px solid var(--border); border-radius: var(--r-lg);
+  height: auto; max-height: 85vh; width: min(580px, 92vw);
+  animation: fadeUp .2s ease;
+}
+@keyframes slideIn { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fadeUp  { from { transform: translateY(8px);  opacity: 0; } to { transform: none; opacity: 1; } }
+
+.panel-hd {
+  display: flex; align-items: center; gap: 9px; flex-shrink: 0;
+  padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
+}
+.panel-hd h2 { font-size: 15px; flex: 1; }
+.panel-body { flex: 1; overflow-y: auto; }
+.panel-ft {
+  padding: 10px 14px; border-top: 1px solid var(--border);
+  flex-shrink: 0; display: flex; gap: 7px; justify-content: flex-end;
+}
+
+/* Drill picker */
+.picker-targets {
+  display: flex; gap: 4px; padding: 8px 12px;
+  background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.pt-btn {
+  flex: 1; padding: 5px 6px; text-align: center; border-radius: 5px;
+  font-size: 11.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); color: var(--text-2); transition: all .15s;
+}
+.pt-btn.active.pt-field   { background: var(--green-bg);  color: var(--green);  border-color: var(--green-bdr); }
+.pt-btn.active.pt-offField { background: var(--blue-bg);   color: var(--blue);   border-color: var(--blue-bdr); }
+.pt-btn.active.pt-bullpen  { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-bdr); }
+
+.search-wrap { padding: 8px 11px; border-bottom: 1px solid var(--border); flex-shrink: 0; position: relative; }
+.search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; font-size: 13px; }
+.search-inp { width: 100%; height: 32px; padding: 0 10px 0 30px; }
+
+/* Category */
+.picker-cat { border-bottom: 1px solid var(--border-dim); }
+.picker-cat:last-child { border-bottom: none; }
+.cat-hd {
+  display: flex; align-items: center; gap: 7px; padding: 9px 12px;
+  cursor: pointer; user-select: none; transition: background .12s;
+}
+.cat-hd:hover { background: var(--bg-raised); }
+.cat-arrow { color: var(--text-3); font-size: 9px; transition: transform .18s; }
+.cat-hd.open .cat-arrow { transform: rotate(90deg); }
+.cat-hd-name {
+  font-family: 'Oswald', sans-serif; font-size: 12.5px;
+  font-weight: 600; letter-spacing: .04em; flex: 1;
+}
+.cat-count { font-size: 10px; color: var(--text-3); background: var(--bg-raised); padding: 1px 6px; border-radius: 8px; }
+.cat-drills-list { display: none; }
+.cat-drills-list.open { display: block; }
+
+.picker-drill {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 12px 7px 22px; border-top: 1px solid var(--border-dim);
+  transition: background .1s;
+}
+.picker-drill:hover { background: var(--bg-raised); }
+.picker-drill-name { flex: 1; font-size: 12.5px; }
+.picker-drill-acts { display: flex; gap: 4px; flex-shrink: 0; }
+.btn-vid-sm {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10.5px; font-weight: 700; padding: 3px 7px;
+  border-radius: 4px; cursor: pointer; transition: all .15s;
+  background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bdr);
+}
+.btn-vid-sm:hover { background: rgba(240,160,48,.22); }
+.btn-add-sm {
+  display: inline-flex; align-items: center;
+  font-size: 11.5px; font-weight: 600; padding: 3px 9px;
+  border-radius: 4px; cursor: pointer; transition: all .15s;
+  background: var(--bg-raised); color: var(--text-2); border: 1px solid var(--border);
+}
+.btn-add-sm:hover { background: var(--amber); color: #000; border-color: transparent; }
+
+/* Video modal */
+.video-wrap iframe { width: 100%; aspect-ratio: 16/9; border: none; display: block; }
+.video-ig { padding: 24px; text-align: center; }
+.video-ig .ig-icon { font-size: 40px; margin-bottom: 12px; }
+.video-ig p { color: var(--text-2); font-size: 13px; margin-bottom: 16px; }
+.video-ig-qr { margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.video-ig-qr span { font-size: 11px; color: var(--text-3); }
+.video-unavail { padding: 24px; text-align: center; color: var(--text-2); font-size: 13px; }
+
+/* Drill editor form */
+.form-grp { margin-bottom: 13px; }
+.form-lbl { display: block; font-size: 11.5px; color: var(--text-2); margin-bottom: 5px; font-weight: 500; }
+.form-inp { width: 100%; }
+.form-sel { width: 100%; height: 34px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); border-radius: var(--r); padding: 0 8px; }
+.form-sel:focus { border-color: var(--amber); }
+.video-preview-row {
+  margin-top: 7px; padding: 8px 10px; background: var(--bg);
+  border-radius: var(--r); font-size: 12px; display: flex; align-items: center; gap: 8px;
+}
+.vtype-badge { font-size: 9.5px; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+.vtype-youtube   { background: rgba(255,60,60,.15); color: #ff4040; }
+.vtype-instagram { background: rgba(220,60,200,.15); color: #dc3cb8; }
+.vtype-gdrive    { background: var(--blue-bg); color: var(--blue); }
+.vtype-unknown   { background: var(--bg-raised); color: var(--text-3); }
+
+/* Drill manager */
+.mgr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mgr-table th {
+  text-align: left; padding: 7px 10px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text-3);
+  border-bottom: 1px solid var(--border); background: var(--bg);
+  position: sticky; top: 0; z-index: 1;
+}
+.mgr-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-dim); vertical-align: middle; }
+.mgr-table tr:last-child td { border-bottom: none; }
+.mgr-table tr:hover td { background: var(--bg-raised); }
+.builtin-pill { font-size: 9.5px; color: var(--text-3); background: var(--bg-raised); padding: 1px 5px; border-radius: 3px; margin-left: 5px; }
+
+/* ================================================================
+   TOAST
+================================================================ */
+.toast-rack { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 999; display: flex; flex-direction: column; gap: 7px; pointer-events: none; align-items: center; }
+.toast {
+  padding: 9px 14px; background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--r); font-size: 12.5px; pointer-events: none;
+  animation: toastIn .18s ease, toastOut .3s 2.2s forwards;
+  white-space: nowrap;
+}
+.toast.ok  { border-color: var(--green); color: var(--green); }
+.toast.err { border-color: var(--red);   color: var(--red); }
+@keyframes toastIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; } }
+
+/* ================================================================
+   PRINT
+================================================================ */
+.no-print { }
+.print-only { display: none; }
+
+/* ================================================================
+   SHARE MODAL
+================================================================ */
+.share-url-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 9px 11px;
+  font-family: monospace; font-size: 11px; color: var(--text-2);
+  word-break: break-all; line-height: 1.6; user-select: all;
+  max-height: 80px; overflow-y: auto;
+}
+.share-note { font-size: 11.5px; color: var(--text-3); line-height: 1.6; margin-top: 10px; }
+.share-note strong { color: var(--text-2); }
+
+/* ================================================================
+   READ-ONLY SESSION VIEW
+================================================================ */
+#readOnlyView {
+  display: none; position: fixed; inset: 0;
+  background: #0d1117; overflow-y: auto; z-index: 9999;
+  font-family: 'DM Sans', sans-serif;
+}
+.ro-wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+.ro-header {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 16px; border-bottom: 2px solid var(--border);
+  margin-bottom: 24px; flex-wrap: wrap;
+}
+.ro-logo { background: var(--amber); color: #000; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 14px; padding: 4px 10px; border-radius: 4px; letter-spacing: .08em; }
+.ro-title { font-family: 'Oswald', sans-serif; font-size: 22px; font-weight: 700; flex: 1; }
+.ro-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
+.ro-meta-item { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 5px; }
+.ro-meta-item span { color: var(--text); font-weight: 500; }
+
+.ro-section { margin-bottom: 28px; }
+.ro-section-title {
+  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--text-3);
+  margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border-dim);
+}
+
+.ro-warmup {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px 14px;
+}
+.ro-warmup-dur { font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--amber); }
+.ro-warmup-notes { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+
+.ro-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .ro-cols { grid-template-columns: 1fr; } }
+
+.ro-group { }
+.ro-group-hd {
+  display: flex; align-items: center; gap: 7px;
+  margin-bottom: 10px;
+}
+.ro-group-hd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ro-group-hd-name { font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .06em; flex: 1; }
+.ro-group-hd-team { font-size: 10.5px; color: var(--text-3); background: var(--bg-raised); padding: 2px 8px; border-radius: 8px; }
+
+.ro-drill {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px; margin-bottom: 7px;
+}
+.ro-drill-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.ro-drill-time { font-family: 'Oswald', sans-serif; font-size: 14px; font-weight: 600; color: var(--amber); min-width: 44px; flex-shrink: 0; }
+.ro-drill-name { font-size: 13px; font-weight: 600; flex: 1; line-height: 1.3; }
+.ro-drill-dur { font-size: 11px; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+.ro-drill-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ro-drill-notes { font-size: 12px; color: var(--text-2); line-height: 1.5; margin-top: 5px; }
+.ro-video-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; padding: 3px 9px;
+  border-radius: 10px; text-decoration: none;
+  background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bdr);
+  transition: background .15s;
+}
+.ro-video-link:hover { background: rgba(240,160,48,.22); }
+
+.ro-notes-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px 14px;
+  font-size: 13px; color: var(--text-2); line-height: 1.6;
+}
+
+.ro-bullpen { }
+.ro-bullpen-inner {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden; height: 340px;
+}
+.ro-bullpen-inner iframe { width: 100%; height: 100%; border: none; display: block; }
+
+.ro-empty { font-size: 12px; color: var(--text-3); padding: 10px 0; }
+
+@media (max-width: 600px) {
+  .ro-header { gap: 8px; }
+  .ro-title { font-size: 18px; }
+}
+
+/* ── Read-only bullpen ── */
+.ro-bullpen-split {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+@media (max-width: 600px) { .ro-bullpen-split { grid-template-columns: 1fr; } }
+.ro-bp-panel-title {
+  font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--text-3);
+  margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border-dim);
+}
+.ro-req-list { display: flex; flex-direction: column; gap: 7px; }
+.ro-req-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.ro-req-info { flex: 1; }
+.ro-req-name { font-size: 13px; font-weight: 600; }
+.ro-req-team { font-size: 11.5px; color: var(--text-2); margin-top: 1px; }
+.ro-req-working { font-size: 11.5px; color: var(--text-3); margin-top: 3px; }
+.ro-req-type-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; flex-shrink: 0; white-space: nowrap;
+}
+.ro-req-type-badge.pitching { background: var(--red-bg); color: var(--red); border: 1px solid rgba(248,81,73,.25); }
+.ro-req-type-badge.catching { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bdr); }
+.ro-req-empty { font-size: 12.5px; color: var(--text-3); padding: 4px 0; line-height: 1.7; }
+.ro-req-slot-btn {
+  margin-top: 14px; width: 100%; padding: 10px 0;
+  background: var(--purple-bg); color: var(--purple);
+  border: 1.5px dashed var(--purple-bdr); border-radius: var(--r);
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.ro-req-slot-btn:hover { background: rgba(188,140,255,.2); }
+.ro-alloc-list { display: flex; flex-direction: column; gap: 7px; }
+.ro-alloc-row {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.ro-alloc-time {
+  font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700;
+  color: var(--amber); flex-shrink: 0; width: 44px; padding-top: 2px;
+}
+.ro-alloc-subs { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.ro-alloc-sub { display: flex; align-items: center; gap: 8px; }
+.ro-alloc-sub-role {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+  width: 60px; flex-shrink: 0;
+}
+.ro-alloc-sub-role.p { color: var(--red); }
+.ro-alloc-sub-role.c { color: var(--purple); }
+.ro-alloc-name { font-size: 13px; font-weight: 600; }
+.ro-alloc-detail { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.ro-alloc-open { font-size: 12px; color: var(--text-3); font-style: italic; }
+.ro-req-type-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+
+/* Request modal */
+.req-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 2px; }
+.req-form-full { grid-column: 1 / -1; }
+.req-type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.req-type-btn {
+  padding: 8px 0; text-align: center; border-radius: var(--r);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border: 1.5px solid var(--border); color: var(--text-2);
+  transition: all .15s; background: none;
+}
+.req-type-btn.active.pitching { background: var(--red-bg); color: var(--red); border-color: rgba(248,81,73,.4); }
+.req-type-btn.active.catching { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-bdr); }
+.req-summary {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 10px 12px; font-size: 12px; color: var(--text-2); line-height: 1.7;
+  white-space: pre-wrap; margin-top: 10px;
+}
+.req-channels { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+
+/* Read-only video modal */
+#roVideoModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.8); z-index: 99999;
+  align-items: center; justify-content: center;
+}
+#roVideoModal.open { display: flex; }
+.ro-video-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); width: min(640px, 94vw);
+  overflow: hidden; animation: fadeUp .18s ease;
+}
+.ro-video-panel-hd {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 14px 10px; border-bottom: 1px solid var(--border);
+}
+.ro-video-panel-hd h3 { font-size: 14px; flex: 1; font-family: 'Oswald', sans-serif; }
+.ro-video-content iframe { width: 100%; aspect-ratio: 16/9; border: none; display: block; }
+.ro-video-ig { padding: 24px; text-align: center; }
+.ro-video-ig p { color: var(--text-2); font-size: 13px; margin-bottom: 14px; }
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+  body { background: white; color: #111; overflow: auto; font-size: 12px; }
+  #app { height: auto; }
+  .app-header, .sidebar, .bullpen-bar { display: none !important; }
+  .app-body { display: block; }
+  .columns-area {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; padding: 16px; height: auto;
+  }
+  .group-col { border: 1px solid #ccc; border-radius: 8px; overflow: visible; display: block; }
+  .group-col-hd { padding: 10px 12px; background: #f5f5f5 !important; border-bottom: 1px solid #ddd; }
+  .group-col-name, .group-dot { color: #111 !important; background: #666 !important; }
+  .group-team-tag { background: #eee; color: #555; }
+  .timeline-wrap { display: none !important; }
+  .drill-list { overflow: visible; padding: 8px; }
+  .drill-list-empty { display: none; }
+  .add-drill-btn-wrap { display: none; }
+  .drill-card {
+    border: 1px solid #ddd; margin-bottom: 8px;
+    page-break-inside: avoid; background: white;
+  }
+  .drill-card-name { color: #111; }
+  .drill-card-actions .btn-icon { display: none; }
+  .drill-dur, .drill-start { background: white; color: #333; border: 1px solid #ccc; }
+  .drill-notes { background: white; color: #555; border: 1px solid #eee; }
+  .video-pill { background: white; color: #555; border: 1px solid #ccc; pointer-events: none; }
+  .cat-badge { border: 1px solid #ddd; }
+  .backdrop { display: none !important; }
+  .print-video-link { display: flex !important; align-items: center; gap: 6px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #eee; font-size: 11px; color: #444; }
+  .print-video-link a { color: #0066cc; word-break: break-all; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+  <header class="app-header no-print">
+    <span class="logo-badge">EBC</span>
+    <span class="session-title" id="sessionTitle" contenteditable spellcheck="false">Training Session</span>
+    <div class="header-sep"></div>
+    <div class="header-field">
+      <label>Date</label>
+      <input type="date" id="sessionDate">
+    </div>
+    <div class="header-field">
+      <label>Start</label>
+      <input type="time" id="sessionStart" value="18:30">
+    </div>
+    <div class="live-clock" id="liveClock"></div>
+    <div class="header-actions">
+      <button class="btn btn-ghost no-print" onclick="openModal('mgrBackdrop')">📋 Library</button>
+      <button class="btn btn-ghost no-print" onclick="loadSession()">↑ Load</button>
+      <button class="btn btn-ghost no-print" onclick="saveSession()">↓ Save</button>
+      <button class="btn btn-ghost no-print" onclick="openShareModal()">🔗 Share link</button>
+      <button class="btn btn-primary no-print" onclick="publishSession()">&#9654; Publish</button>
+      <button class="btn btn-ghost no-print" onclick="doPrint()">🖨 Print</button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════ APP BODY ═══════════════════════════ -->
+  <div class="app-body">
+
+    <!-- ──────── SIDEBAR ──────── -->
+    <aside class="sidebar no-print">
+
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Field Priority</span></div>
+        <div class="card-bd">
+          <div class="priority-toggle">
+            <button class="priority-btn active" id="priA" onclick="setFieldPriority('A')">A TEAM</button>
+            <button class="priority-btn" id="priAAA" onclick="setFieldPriority('AAA')">AAA TEAM</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Equipment</span></div>
+        <div class="card-bd">
+          <div class="equip-list" id="equipList"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Warmup</span></div>
+        <div class="card-bd">
+          <div class="warmup-dur-row">
+            <label>Duration:</label>
+            <input type="number" id="warmupDuration" value="20" min="5" max="45" style="width:50px;text-align:center">
+            <span>min</span>
+          </div>
+          <textarea id="warmupNotes" placeholder="Dynamic stretch, throwing warmup programme..."></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Session Notes</span></div>
+        <div class="card-bd">
+          <textarea id="sessionNotes" placeholder="General reminders, weather notes..."></textarea>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ──────── COLUMNS ──────── -->
+    <div class="columns-area">
+
+      <!-- FIELD GROUP -->
+      <div class="group-col field" id="colField">
+        <div class="group-col-hd field">
+          <div class="group-dot"></div>
+          <span class="group-col-name">FIELD GROUP</span>
+          <span class="group-team-tag" id="fieldTeamTag">A Team</span>
+          <button class="btn-icon no-print" title="Add drill" onclick="openPicker('field')">＋</button>
+        </div>
+        <div class="timeline-wrap" id="tlFieldWrap">
+          <div class="timeline-labels">
+            <span id="tlFieldUsed">0 min used</span>
+            <span id="tlFieldLeft">— min available</span>
+          </div>
+          <div class="timeline-track">
+            <div class="timeline-fill" id="tlFieldFill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="drill-list" id="listField"></div>
+        <div class="add-drill-btn-wrap no-print">
+          <button class="add-drill-btn" onclick="openPicker('field')">＋ Add Drill to Field Group</button>
+        </div>
+      </div>
+
+      <!-- OFF-FIELD GROUP -->
+      <div class="group-col offField" id="colOff">
+        <div class="group-col-hd offField">
+          <div class="group-dot"></div>
+          <span class="group-col-name">OFF-FIELD GROUP</span>
+          <span class="group-team-tag" id="offTeamTag">AAA Team</span>
+          <button class="btn-icon no-print" title="Add drill" onclick="openPicker('offField')">＋</button>
+        </div>
+        <div class="timeline-wrap" id="tlOffWrap">
+          <div class="timeline-labels">
+            <span id="tlOffUsed">0 min used</span>
+            <span id="tlOffLeft">— min available</span>
+          </div>
+          <div class="timeline-track">
+            <div class="timeline-fill" id="tlOffFill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="drill-list" id="listOff"></div>
+        <div class="add-drill-btn-wrap no-print">
+          <button class="add-drill-btn" onclick="openPicker('offField')">＋ Add Drill to Off-Field Group</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /app-body -->
+
+  <!-- ═══════════════════════════ BULLPEN BAR ═══════════════════════════ -->
+  <div class="bullpen-bar no-print" id="bullpenBar">
+    <div class="bullpen-hd">
+      <div class="group-dot" style="background:var(--purple)"></div>
+      <span class="bullpen-hd-title">BULLPEN SIGN-UP</span>
+      <div class="header-sep" style="height:18px"></div>
+      <span style="font-size:11px;color:var(--text-3);flex-shrink:0">Coach contact:</span>
+      <input type="text" id="coachContact" placeholder="email or phone…"
+        style="width:160px;height:24px;font-size:11.5px" oninput="S.coachContact=this.value">
+      <div class="header-sep" style="height:18px"></div>
+      <span style="font-size:11px;color:var(--text-3);flex-shrink:0">Firebase URL:</span>
+      <input type="url" id="firebaseUrl" placeholder="https://your-project.firebaseio.com"
+        style="flex:1;min-width:180px;max-width:300px;height:24px;font-size:11.5px"
+        oninput="S.firebaseUrl=this.value.trim().replace(/\/$/,'');fbStatusUpdate();if(S.firebaseUrl)fbStartPolling()">
+      <span class="fb-status idle" id="fbStatus"><span class="fb-dot"></span><span id="fbStatusTxt">Not connected</span></span>
+      <button class="btn-icon" title="Refresh requests from Firebase" onclick="fbPull()" style="font-size:14px">&#8635;</button>
+      <button class="bullpen-toggle" onclick="toggleBullpen()" id="bullpenToggleBtn">&#9662; collapse</button>
+    </div>
+    <div class="bullpen-body">
+      <!-- Left: requests -->
+      <div class="bp-requests">
+        <div class="bp-panel-hd">
+          <span class="bp-panel-title">Requests</span>
+          <span class="bp-count" id="bpReqCount">0</span>
+        </div>
+        <div class="bp-req-list" id="bpReqList"></div>
+        <button class="bp-add-req-btn" onclick="openReqModal('coach')">&#43; Add Request</button>
+      </div>
+      <!-- Right: fixed timeslots -->
+      <div class="bp-slots">
+        <div class="bp-panel-hd">
+          <span class="bp-panel-title">Allocated Slots</span>
+        </div>
+        <div class="bp-slot-list" id="bpSlotList"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════════
+     READ-ONLY SESSION VIEW (shown when opened via share link)
+═══════════════════════════════════════════════════ -->
+<div id="readOnlyView">
+  <div class="ro-wrap">
+    <div class="ro-header">
+      <span class="ro-logo">EBC</span>
+      <div style="flex:1">
+        <div class="ro-title" id="roTitle">Training Session</div>
+        <div class="ro-meta" id="roMeta"></div>
+      </div>
+    </div>
+    <div class="ro-section" id="roWarmupSection"></div>
+    <div class="ro-section">
+      <div class="ro-cols" id="roCols"></div>
+    </div>
+    <div class="ro-section" id="roNotesSection"></div>
+    <div class="ro-section" id="roBullpenSection"></div>
+  </div>
+</div>
+
+<!-- Read-only video modal -->
+<div id="roVideoModal" onclick="if(event.target===this)roCloseVideo()">
+  <div class="ro-video-panel">
+    <div class="ro-video-panel-hd">
+      <h3 id="roVideoTitle">Video</h3>
+      <button class="btn-icon" onclick="roCloseVideo()">&#10005;</button>
+    </div>
+    <div class="ro-video-content" id="roVideoContent"></div>
+  </div>
+</div>
+
+<!-- Request slot modal (used by players in RO view AND by coach in editor) -->
+<div id="roRequestModal" onclick="if(event.target===this)roCloseRequest()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99998;align-items:center;justify-content:center">
+  <div class="panel panel-center" style="max-width:460px">
+    <div class="panel-hd">
+      <h2 id="reqModalTitle">Request Bullpen Slot</h2>
+      <button class="btn-icon" onclick="roCloseRequest()">&#10005;</button>
+    </div>
+    <div class="panel-body" style="padding:14px 16px">
+
+      <!-- Form (shown before submit) -->
+      <div id="reqFormSection">
+        <div class="req-form-grid">
+          <div class="form-grp req-form-full" style="margin-bottom:0">
+            <label class="form-lbl">Name *</label>
+            <input type="text" class="form-inp" id="reqName" placeholder="First and last name">
+          </div>
+          <div class="form-grp" style="margin-bottom:0">
+            <label class="form-lbl">Team</label>
+            <select class="form-sel" id="reqTeam">
+              <option value="">Select…</option>
+              <option>Angels</option>
+              <option>Cannons</option>
+              <option>Devils</option>
+              <option>Knights</option>
+            </select>
+          </div>
+          <div class="form-grp" style="margin-bottom:0">
+            <label class="form-lbl">Working On</label>
+            <input type="text" class="form-inp" id="reqWorkingOn" placeholder="e.g. Curveball, Blocking…">
+          </div>
+          <div class="form-grp req-form-full" style="margin-bottom:0">
+            <label class="form-lbl">Pitching or Catching?</label>
+            <div class="req-type-toggle">
+              <button class="req-type-btn pitching" id="reqTypePitching" onclick="setReqType('Pitching')">&#9918; Pitching</button>
+              <button class="req-type-btn catching" id="reqTypeCatching" onclick="setReqType('Catching')">&#129405; Catching</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Post-submit confirmation (shown after submit, no-Firebase only) -->
+      <div id="reqConfirmSection" style="display:none;padding:4px 0">
+        <div id="reqConfirmMsg" style="font-size:13px;color:var(--text-2);margin-bottom:12px;line-height:1.6"></div>
+        <div id="reqShareBtns" class="req-channels"></div>
+      </div>
+
+    </div>
+    <div class="panel-ft">
+      <button class="btn btn-ghost" id="reqCancelBtn" onclick="roCloseRequest()">Cancel</button>
+      <button class="btn btn-primary" id="reqActionBtn" onclick="submitReq()">&#10003; Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SHARE MODAL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop centered no-print" id="shareBackdrop" onclick="backdropClose(event,'shareBackdrop')">
+  <div class="panel panel-center" style="max-width:500px">
+    <div class="panel-hd">
+      <h2 id="shareModalTitle">Session Link</h2>
+      <button class="btn-icon" onclick="closeModal('shareBackdrop')">&#10005;</button>
+    </div>
+    <div class="panel-body" style="padding:16px">
+      <div id="shareModalBody"></div>
+    </div>
+    <div class="panel-ft">
+      <button class="btn btn-ghost" onclick="closeModal('shareBackdrop')">Close</button>
+      <button class="btn btn-primary" id="copyLinkBtn" onclick="copyShareLink()">📋 Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DRILL PICKER PANEL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop no-print" id="pickerBackdrop" onclick="backdropClose(event,'pickerBackdrop')">
+  <div class="panel">
+    <div class="panel-hd">
+      <h2>Drill Library</h2>
+      <button class="btn-icon" onclick="closeModal('pickerBackdrop')">✕</button>
+    </div>
+    <div class="picker-targets">
+      <button class="pt-btn pt-field active" id="ptField" onclick="setPickerTarget('field')">&#128994; Field</button>
+      <button class="pt-btn pt-offField" id="ptOff" onclick="setPickerTarget('offField')">&#128309; Off-Field</button>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-inp" type="search" id="drillSearch" placeholder="Search drills..." oninput="filterDrills()">
+    </div>
+    <div class="panel-body" id="pickerCats"></div>
+    <div class="panel-ft">
+      <button class="btn btn-ghost" onclick="openDrillEditor(null);closeModal('pickerBackdrop')">＋ New Custom Drill</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     VIDEO MODAL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop centered no-print" id="videoBackdrop" onclick="backdropClose(event,'videoBackdrop')">
+  <div class="panel panel-center" style="max-width:620px">
+    <div class="panel-hd">
+      <h2 id="videoTitle">Video</h2>
+      <button class="btn-icon" onclick="closeModal('videoBackdrop')">✕</button>
+    </div>
+    <div class="video-wrap" id="videoWrap"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DRILL EDITOR MODAL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop centered no-print" id="editorBackdrop" onclick="backdropClose(event,'editorBackdrop')">
+  <div class="panel panel-center">
+    <div class="panel-hd">
+      <h2 id="editorTitle">Add Custom Drill</h2>
+      <button class="btn-icon" onclick="closeModal('editorBackdrop')">✕</button>
+    </div>
+    <div class="panel-body" style="padding:14px 16px">
+      <div class="form-grp">
+        <label class="form-lbl">Drill Name *</label>
+        <input type="text" class="form-inp" id="edName" placeholder="e.g. Live BP, Slow Rollers Fungo...">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Category</label>
+        <select class="form-sel" id="edCat">
+          <option>Hitting</option><option>Infield</option><option>Outfield</option>
+          <option>Pitching</option><option>Catching</option><option selected>Custom</option>
+        </select>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Description (optional)</label>
+        <textarea class="form-inp" id="edDesc" style="min-height:56px" placeholder="Brief description..."></textarea>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Video URL (optional)</label>
+        <input type="url" class="form-inp" id="edVideo" placeholder="YouTube, Instagram, or Google Drive URL..." oninput="liveVideoPreview('edVideo','edVPreview','edVBadge','edVText')">
+        <div id="edVPreview" style="display:none">
+          <div class="video-preview-row">
+            <span class="vtype-badge" id="edVBadge"></span>
+            <span id="edVText" style="color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <button class="btn-vid-sm" onclick="quickPreview('edVideo')">▶ Preview</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-ft">
+      <input type="hidden" id="edId">
+      <button class="btn btn-ghost" onclick="closeModal('editorBackdrop')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDrill()">Save Drill</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DRILL MANAGER MODAL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop centered no-print" id="mgrBackdrop" onclick="backdropClose(event,'mgrBackdrop')">
+  <div class="panel panel-center" style="max-width:720px;max-height:90vh">
+    <div class="panel-hd">
+      <h2>Drill Library Manager</h2>
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button class="btn btn-ghost" style="font-size:11.5px" onclick="importCSV()">Import CSV</button>
+        <button class="btn btn-primary" style="font-size:11.5px" onclick="openDrillEditor(null)">＋ New Drill</button>
+      </div>
+      <button class="btn-icon" onclick="closeModal('mgrBackdrop')">✕</button>
+    </div>
+    <div class="panel-body" style="padding:0;overflow-y:auto" id="mgrTableWrap"></div>
+    <div class="panel-ft" style="justify-content:space-between">
+      <span style="font-size:11px;color:var(--text-3)" id="mgrCount"></span>
+      <button class="btn btn-ghost" onclick="downloadApp()">↓ Download Updated App</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-rack" id="toastRack"></div>
+
+<!-- ================================================================
+     JAVASCRIPT
+================================================================ -->
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────
+//  BUILT-IN DRILL LIBRARY
+// ─────────────────────────────────────────────────────────────
+const BUILTIN = [
+  // HITTING
+  {id:'HIT001',name:'Live BP',cat:'Hitting',desc:'Live batting practice on main field. Non-batting players on ball retrieval duty.',video:'',bi:true},
+  {id:'HIT002',name:'Tee Work',cat:'Hitting',desc:'Individual batting tee work focusing on mechanics.',video:'',bi:true},
+  {id:'HIT003',name:'Soft Toss',cat:'Hitting',desc:'Partner soft toss in batting nets.',video:'',bi:true},
+  {id:'HIT004',name:'Pitching Machine BP',cat:'Hitting',desc:'Batting practice off pitching machine. Non-batting players on ball retrieval duty.',video:'',bi:true},
+  {id:'HIT005',name:'Front Toss',cat:'Hitting',desc:'Front toss for timing and contact work.',video:'',bi:true},
+  // INFIELD
+  {id:'INF001',name:'1 Hour Infield Drill',cat:'Infield',desc:'Full structured infield practice plan.',video:'',bi:true},
+  {id:'INF002',name:'Preset Backhand Pick & Stick',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF003',name:'Box Drill – 2B Double Play Feeds',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF004',name:'1B Receiving Short Hops',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF005',name:'Box Drill – SS Double Play Feeds',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF006',name:'Forehand Range Drill',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF007',name:'Backhand Pick & Stick (Fungo)',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF008',name:'2B Underhand Flip Drill',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF009',name:'Slow Rollers Fungo Drill',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF010',name:'30 Second Grounders Drill',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF011',name:'Right Left Shuffle Drill',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF012',name:'SS Flips to Second Base',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF013',name:'Backhand Pick and Stick Fungo',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF014',name:'Rapid Fire Fungo Drill',cat:'Infield',desc:'',video:'',bi:true},
+  {id:'INF015',name:'Preset Backhand Rake Drill',cat:'Infield',desc:'',video:'',bi:true},
+  // OUTFIELD
+  {id:'OUTF001',name:'1 Hour Outfield Practice Plan',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF002',name:'Drop Step Cones Drill',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF003',name:'Fly Balls Drill',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF004',name:'Grounders Drill',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF005',name:'Outfield Communication Drill',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF006',name:'Quarterback Over the Shoulder',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF007',name:'Read and React Drill',cat:'Outfield',desc:'',video:'',bi:true},
+  {id:'OUTF008',name:'Tandem Drill',cat:'Outfield',desc:'',video:'',bi:true},
+  // PITCHING
+  {id:'PIT001',name:'Balance Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT002',name:'Balanced Stationary Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT003',name:'Break of the Hands Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT004',name:'Bunts on 1st Base Side',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT005',name:'Bunts on 3rd Base Side',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT006',name:'ChangeUp Catch Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT007',name:'Comebackers Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT008',name:'Cover 1st Base Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT009',name:'Daily Band Work',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT010',name:'Daily Flat Ground Work',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT011',name:'Daily Throwing Program',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT012',name:'Intentional Throwing Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT014',name:'One Knee Drill',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT015',name:'Power Position',cat:'Pitching',desc:'',video:'',bi:true},
+  {id:'PIT016',name:'Working in Set Position',cat:'Pitching',desc:'',video:'',bi:true},
+  // CATCHING
+  {id:'CATF001',name:'Basic Blocking Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF002',name:'Basic Receiving Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF003',name:'Bite the Ball Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF004',name:'Block Recover Throw Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF005',name:'Cross Partner Framing Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF006',name:'Drop and Block Line Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF007',name:'No Glove Block Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF008',name:'Nose Behind Ball Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF009',name:'PopUps Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF010',name:'Tennis Ball PopUps Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF011',name:'Tennis Ball Soft Hands Drill',cat:'Catching',desc:'',video:'',bi:true},
+  {id:'CATF012',name:'Tic Tac Toe Drill',cat:'Catching',desc:'',video:'',bi:true},
+];
+
+// Editable: custom drills added by coaches
+// These are embedded when you "Download Updated App"
+const CUSTOM_DRILLS = [
+];
+
+// Editable: video URL overrides for built-in drills
+// e.g. { 'INF001': 'https://youtube.com/watch?v=...' }
+const VIDEO_OVERRIDES = {
+};
+
+// ─────────────────────────────────────────────────────────────
+//  EQUIPMENT
+// ─────────────────────────────────────────────────────────────
+const EQUIP = [
+  {key:'mobileMound', label:'Mobile Mound'},
+  {key:'backstop',    label:'Backstop'},
+  {key:'lScreen',     label:'L-Screen'},
+  {key:'pitchingMachine', label:'Pitching Machine'},
+  {key:'battingNet1', label:'Batting Net 1'},
+  {key:'battingNet2', label:'Batting Net 2'},
+];
+const EQUIP_CYCLE = ['Main Field','Off-Field','Bullpen','Shared','Not in use'];
+const EQUIP_DEF = {
+  mobileMound:'Main Field', backstop:'Main Field', lScreen:'Main Field',
+  pitchingMachine:'Main Field', battingNet1:'Off-Field', battingNet2:'Off-Field'
+};
+
+// ─────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────
+let S = {
+  title: 'Training Session',
+  date: '', startTime: '18:30',
+  fieldPri: 'A',
+  warmupDur: 20, warmupNotes: '',
+  sessionNotes: '',
+  equip: {...EQUIP_DEF},
+  field: [],
+  off: [],
+  bullpenRequests:    [],   // [{id, name, team, type, workingOn, ts}]
+  bullpenAllocations: {},   // {'18:20': {pitcher:{name,team,workingOn,reqId}|null, catcher:{...}|null}}
+  coachContact: '',
+  firebaseUrl:  'https://ebc-bullpen-default-rtdb.europe-west1.firebasedatabase.app',
+  custom: [...CUSTOM_DRILLS],
+  overrides: {...VIDEO_OVERRIDES},
+  _uid: 1
+};
+
+const BULLPEN_TIMES = ['18:20','18:40','19:00','19:20','19:40'];
+
+let pickerTarget = 'field';
+let bullpenOpen  = true;
+
+// ─────────────────────────────────────────────────────────────
+//  LIBRARY HELPERS
+// ─────────────────────────────────────────────────────────────
+function lib() {
+  return [
+    ...BUILTIN.map(d => ({...d, video: S.overrides[d.id] || d.video})),
+    ...S.custom
+  ];
+}
+function getDrill(id) { return lib().find(d => d.id === id); }
+function uid()        { return 'u' + (S._uid++); }
+
+// ─────────────────────────────────────────────────────────────
+//  VIDEO
+// ─────────────────────────────────────────────────────────────
+function videoType(url) {
+  if (!url) return null;
+  if (/youtube\.com|youtu\.be/.test(url))  return 'youtube';
+  if (/instagram\.com/.test(url))           return 'instagram';
+  if (/drive\.google\.com/.test(url))       return 'gdrive';
+  return 'unknown';
+}
+function videoTypeName(url) {
+  const t = videoType(url);
+  return {youtube:'YouTube', instagram:'Instagram', gdrive:'Google Drive', unknown:'Unknown', null:''}[t] || '';
+}
+function embedUrl(url) {
+  if (!url) return null;
+  const t = videoType(url);
+  if (t === 'youtube') {
+    const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0`;
+  }
+  if (t === 'gdrive') {
+    const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+  }
+  return null;
+}
+
+function openVideoModal(drillId) {
+  const d = getDrill(drillId);
+  if (!d || !d.video) return;
+  document.getElementById('videoTitle').textContent = d.name;
+  const wrap = document.getElementById('videoWrap');
+  const t = videoType(d.video);
+  const eurl = embedUrl(d.video);
+
+  if (t === 'youtube' || t === 'gdrive') {
+    wrap.innerHTML = `<iframe src="${eurl}" allowfullscreen allow="autoplay;fullscreen" style="width:100%;aspect-ratio:16/9;border:none;display:block;border-radius:0 0 var(--r-lg) var(--r-lg)"></iframe>`;
+  } else if (t === 'instagram') {
+    wrap.innerHTML = `
+      <div class="video-ig">
+        <div class="ig-icon">📸</div>
+        <p>Instagram videos can't be embedded directly.<br>Tap below to open the video.</p>
+        <a href="${d.video}" target="_blank" class="btn btn-primary" style="display:inline-flex;margin-top:4px">Open on Instagram ↗</a>
+      </div>`;
+  } else {
+    wrap.innerHTML = `<div class="video-unavail"><p>Cannot embed this URL directly.</p><br><a href="${d.video}" target="_blank">Open link ↗</a></div>`;
+  }
+  openModal('videoBackdrop');
+}
+
+function liveVideoPreview(inputId, previewId, badgeId, textId) {
+  const url = document.getElementById(inputId).value.trim();
+  const prev = document.getElementById(previewId);
+  if (!url) { prev.style.display = 'none'; return; }
+  prev.style.display = 'block';
+  const t = videoType(url);
+  const badge = document.getElementById(badgeId);
+  badge.className = 'vtype-badge vtype-' + (t || 'unknown');
+  badge.textContent = videoTypeName(url);
+  const textEl = document.getElementById(textId);
+  textEl.textContent = url.length > 50 ? url.slice(0,50)+'…' : url;
+}
+
+function quickPreview(inputId) {
+  const url = document.getElementById(inputId).value.trim();
+  if (!url) return;
+  const t = videoType(url);
+  const eurl = embedUrl(url);
+  document.getElementById('videoTitle').textContent = 'Preview';
+  const wrap = document.getElementById('videoWrap');
+  if (t === 'youtube' || t === 'gdrive') {
+    wrap.innerHTML = `<iframe src="${eurl}" allowfullscreen allow="autoplay" style="width:100%;aspect-ratio:16/9;border:none;display:block"></iframe>`;
+  } else if (t === 'instagram') {
+    wrap.innerHTML = `<div class="video-ig"><a href="${url}" target="_blank" class="btn btn-primary">Open on Instagram ↗</a></div>`;
+  } else {
+    wrap.innerHTML = `<div class="video-unavail"><a href="${url}" target="_blank">Open link ↗</a></div>`;
+  }
+  openModal('videoBackdrop');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  TIME UTILS
+// ─────────────────────────────────────────────────────────────
+function parseMin(str) {
+  if (!str) return null;
+  const [h,m] = str.split(':').map(Number);
+  return h*60+m;
+}
+function fmtTime(m) {
+  return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+}
+function mainStart() {
+  const s = parseMin(S.startTime);
+  return s == null ? null : s + (parseInt(S.warmupDur)||20);
+}
+function sessionAvail() {
+  const ms = mainStart();
+  if (ms==null) return 100;
+  const end = (parseMin(S.startTime)||0) + 120;
+  return end - ms;
+}
+function totalDur(arr) {
+  return arr.reduce((t,d) => t + (parseInt(d.dur)||20), 0);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────────────────────────
+function renderAll() {
+  renderEquip();
+  renderGroup('field');
+  renderGroup('off');
+  renderBullpenSlots();
+  renderTimelines();
+  syncControls();
+  updateTeamLabels();
+}
+
+function syncControls() {
+  document.getElementById('sessionTitle').textContent = S.title;
+  document.getElementById('sessionDate').value = S.date;
+  document.getElementById('sessionStart').value = S.startTime;
+  document.getElementById('warmupDuration').value = S.warmupDur;
+  document.getElementById('warmupNotes').value = S.warmupNotes;
+  document.getElementById('sessionNotes').value = S.sessionNotes;
+  document.getElementById('coachContact').value = S.coachContact || '';
+  document.getElementById('firebaseUrl').value  = S.firebaseUrl  || '';
+  document.getElementById('priA').classList.toggle('active', S.fieldPri==='A');
+  document.getElementById('priAAA').classList.toggle('active', S.fieldPri==='AAA');
+  fbStatusUpdate();
+}
+
+function updateTeamLabels() {
+  const fp = S.fieldPri, other = fp==='A' ? 'AAA' : 'A';
+  document.getElementById('fieldTeamTag').textContent = fp + ' Team';
+  document.getElementById('offTeamTag').textContent   = other + ' Team';
+}
+
+function renderEquip() {
+  document.getElementById('equipList').innerHTML =
+    EQUIP.map(e => `
+      <div class="equip-row">
+        <span class="equip-name">${e.label}</span>
+        <span class="equip-chip" data-s="${S.equip[e.key]}"
+              onclick="cycleEquip('${e.key}')">${S.equip[e.key]}</span>
+      </div>`).join('');
+}
+
+function renderGroup(g) {
+  const arr = g==='field' ? S.field : S.off;
+  const listId = g==='field' ? 'listField' : 'listOff';
+  const el = document.getElementById(listId);
+  if (!el) return;
+
+  if (!arr.length) {
+    el.innerHTML = `<div class="drill-list-empty">No drills added yet.<br>Use + Add Drill below to get started.</div>`;
+    return;
+  }
+
+  const ms = mainStart();
+  let running = ms || 0;
+
+  el.innerHTML = arr.map((sd, i) => {
+    const d = getDrill(sd.did);
+    if (!d) return '';
+    const autoT = fmtTime(running + arr.slice(0,i).reduce((t,x)=>t+(parseInt(x.dur)||20),0));
+    const dispStart = sd.start || autoT;
+
+    return `
+      <div class="drill-card" data-uid="${sd.uid}">
+        <div class="drill-card-top">
+          <span class="cat-badge cat-${d.cat}">${d.cat}</span>
+          <span class="drill-card-name">${d.name}</span>
+          <div class="drill-card-actions no-print">
+            ${d.video ? `<button class="video-pill" onclick="openVideoModal('${d.id}')">▶ Video</button>` : ''}
+            <button class="btn-icon" title="Move up"   onclick="moveDrill('${g}','${sd.uid}',-1)">↑</button>
+            <button class="btn-icon" title="Move down" onclick="moveDrill('${g}','${sd.uid}',1)">↓</button>
+            <button class="btn-icon" title="Remove"    onclick="removeDrill('${g}','${sd.uid}')">✕</button>
+          </div>
+        </div>
+        <div class="drill-card-meta">
+          <div class="meta-field">
+            <label>Duration</label>
+            <input class="drill-dur" type="number" min="5" max="120" value="${sd.dur||20}"
+                   onchange="updateSD('${g}','${sd.uid}','dur',this.value)">
+            <span style="font-size:10.5px;color:var(--text-3)">min</span>
+          </div>
+          <div class="meta-field">
+            <label>Start</label>
+            <input class="drill-start" type="time" value="${dispStart}"
+                   title="Leave blank to auto-calculate from session start"
+                   oninput="updateSD('${g}','${sd.uid}','start',this.value)">
+          </div>
+        </div>
+        <textarea class="drill-notes no-print" placeholder="Notes for this drill…"
+                  oninput="updateSD('${g}','${sd.uid}','notes',this.value)">${sd.notes||''}</textarea>
+        ${d.video ? `<div class="print-video-link" data-vid="${d.video}" style="display:none">▶ <a href="${d.video}" target="_blank">${d.video}</a></div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function renderBullpen() {
+  const el = document.getElementById('bullpenDrills');
+  el.innerHTML = S.bullpen.map(sd => {
+    const d = getDrill(sd.did);
+    if (!d) return '';
+    return `<span class="bullpen-chip">${d.name}<span class="rm" onclick="removeBullpen('${sd.uid}')">✕</span></span>`;
+  }).join('');
+}
+
+function renderTimelines() {
+  const avail = sessionAvail();
+  ['field','off'].forEach(g => {
+    const arr = g==='field' ? S.field : S.off;
+    const used = totalDur(arr);
+    const pct  = Math.min(100, avail > 0 ? (used/avail)*100 : 100);
+    const over  = used > avail;
+    const pfx  = g==='field' ? 'tlField' : 'tlOff';
+    const fill = document.getElementById(pfx+'Fill');
+    const usedEl = document.getElementById(pfx+'Used');
+    const leftEl = document.getElementById(pfx+'Left');
+    const wrap  = document.getElementById(pfx.replace('tl','tl')+'..')||
+                  document.querySelector(`.group-col.${g === 'field' ? 'field' : 'offField'} .timeline-track`);
+    if (fill)   fill.style.width = pct + '%';
+    if (usedEl) usedEl.textContent = `${used} min used`;
+    if (leftEl) {
+      leftEl.textContent = over
+        ? `${used - avail} min over ⚠`
+        : `${avail - used} min remaining`;
+      leftEl.classList.toggle('over', over);
+    }
+    const track = document.querySelector(`.group-col.${g==='field'?'field':'offField'} .timeline-track`);
+    if (track) track.parentElement.classList.toggle('timeline-over', over);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DRILL MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+function addDrill(group, drillId) {
+  const entry = { uid: uid(), did: drillId, start: '', dur: 20, notes: '' };
+  if (group === 'field')   S.field.push(entry);
+  else if (group === 'offField' || group === 'off') S.off.push(entry);
+  renderAll();
+  toast('Drill added \u2713','ok');
+}
+
+function removeDrill(g, u) {
+  if (g==='field') S.field = S.field.filter(d=>d.uid!==u);
+  else              S.off   = S.off.filter(d=>d.uid!==u);
+  renderAll();
+}
+function removeBullpen(u) {
+  S.bullpen = S.bullpen.filter(d=>d.uid!==u);
+  renderBullpen();
+}
+function moveDrill(g, u, dir) {
+  const arr = g==='field' ? S.field : S.off;
+  const i = arr.findIndex(d=>d.uid===u);
+  if (i<0) return;
+  const ni = i+dir;
+  if (ni<0||ni>=arr.length) return;
+  [arr[i],arr[ni]] = [arr[ni],arr[i]];
+  renderGroup(g);
+  renderTimelines();
+}
+function updateSD(g, u, prop, val) {
+  const arr = g==='field' ? S.field : S.off;
+  const d = arr.find(x=>x.uid===u);
+  if (d) { d[prop] = prop==='dur' ? parseInt(val)||20 : val; }
+  renderTimelines();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EQUIPMENT
+// ─────────────────────────────────────────────────────────────
+function cycleEquip(key) {
+  const i = EQUIP_CYCLE.indexOf(S.equip[key]);
+  S.equip[key] = EQUIP_CYCLE[(i+1) % EQUIP_CYCLE.length];
+  renderEquip();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FIELD PRIORITY
+// ─────────────────────────────────────────────────────────────
+function setFieldPriority(g) {
+  S.fieldPri = g;
+  document.getElementById('priA').classList.toggle('active', g==='A');
+  document.getElementById('priAAA').classList.toggle('active', g==='AAA');
+  updateTeamLabels();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PICKER
+// ─────────────────────────────────────────────────────────────
+function openPicker(target) {
+  pickerTarget = target;
+  updatePickerTargetBtns();
+  renderPickerCats('');
+  document.getElementById('drillSearch').value = '';
+  openModal('pickerBackdrop');
+}
+
+function setPickerTarget(t) {
+  pickerTarget = t;
+  updatePickerTargetBtns();
+}
+
+function updatePickerTargetBtns() {
+  document.getElementById('ptField').classList.remove('active');
+  document.getElementById('ptOff').classList.remove('active');
+  if (pickerTarget === 'field')    document.getElementById('ptField').classList.add('active');
+  if (pickerTarget === 'offField') document.getElementById('ptOff').classList.add('active');
+}
+
+function filterDrills() {
+  renderPickerCats(document.getElementById('drillSearch').value.toLowerCase().trim());
+}
+
+function renderPickerCats(filter) {
+  const CATS = ['Hitting','Infield','Outfield','Pitching','Catching','Custom'];
+  const all = lib();
+  const container = document.getElementById('pickerCats');
+  const isFiltering = !!filter;
+
+  container.innerHTML = CATS.map(cat => {
+    const drills = all.filter(d =>
+      d.cat === cat && (!filter || d.name.toLowerCase().includes(filter))
+    );
+    if (!drills.length) return '';
+
+    return `
+      <div class="picker-cat">
+        <div class="cat-hd ${isFiltering?'open':''}" onclick="toggleCat(this)">
+          <span class="cat-arrow">▶</span>
+          <span class="cat-hd-name"><span class="cat-badge cat-${cat}" style="font-size:10px">${cat}</span></span>
+          <span class="cat-count">${drills.length}</span>
+        </div>
+        <div class="cat-drills-list ${isFiltering?'open':''}">
+          ${drills.map(d => `
+            <div class="picker-drill">
+              <span class="picker-drill-name">${d.name}</span>
+              <div class="picker-drill-acts">
+                ${d.video ? `<button class="btn-vid-sm" onclick="openVideoModal('${d.id}')">▶</button>` : ''}
+                <button class="btn-add-sm" onclick="addDrill(pickerTarget,'${d.id}')">＋ Add</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleCat(hd) {
+  hd.classList.toggle('open');
+  hd.nextElementSibling.classList.toggle('open');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DRILL EDITOR
+// ─────────────────────────────────────────────────────────────
+function openDrillEditor(id) {
+  document.getElementById('editorTitle').textContent = id ? 'Edit Drill' : 'Add Custom Drill';
+  document.getElementById('edId').value = id || '';
+  document.getElementById('edVPreview').style.display = 'none';
+
+  if (id) {
+    const d = S.custom.find(x=>x.id===id);
+    if (d) {
+      document.getElementById('edName').value  = d.name;
+      document.getElementById('edCat').value   = d.cat;
+      document.getElementById('edDesc').value  = d.desc||'';
+      document.getElementById('edVideo').value = d.video||'';
+      liveVideoPreview('edVideo','edVPreview','edVBadge','edVText');
+    }
+  } else {
+    document.getElementById('edName').value  = '';
+    document.getElementById('edCat').value   = 'Custom';
+    document.getElementById('edDesc').value  = '';
+    document.getElementById('edVideo').value = '';
+  }
+  openModal('editorBackdrop');
+}
+
+function saveDrill() {
+  const name = document.getElementById('edName').value.trim();
+  if (!name) { toast('Please enter a drill name','err'); return; }
+  const cat   = document.getElementById('edCat').value;
+  const desc  = document.getElementById('edDesc').value.trim();
+  const video = document.getElementById('edVideo').value.trim();
+  const id    = document.getElementById('edId').value;
+
+  if (id) {
+    const idx = S.custom.findIndex(d=>d.id===id);
+    if (idx>=0) S.custom[idx] = {...S.custom[idx], name, cat, desc, video};
+  } else {
+    S.custom.push({ id:'C'+Date.now(), name, cat, desc, video, bi:false });
+  }
+  closeModal('editorBackdrop');
+  renderPickerCats(document.getElementById('drillSearch').value.toLowerCase());
+  renderMgrTable();
+  toast(id ? 'Drill updated ✓' : 'Drill added ✓','ok');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DRILL MANAGER
+// ─────────────────────────────────────────────────────────────
+function renderMgrTable() {
+  const all = lib();
+  document.getElementById('mgrCount').textContent = `${all.length} drills`;
+  document.getElementById('mgrTableWrap').innerHTML = `
+    <table class="mgr-table">
+      <thead><tr>
+        <th style="width:80px">ID</th>
+        <th>Name</th>
+        <th style="width:90px">Category</th>
+        <th style="width:140px">Video</th>
+        <th style="width:80px">Actions</th>
+      </tr></thead>
+      <tbody>
+        ${all.map(d => `
+          <tr>
+            <td style="font-family:monospace;font-size:10.5px;color:var(--text-3)">${d.id}</td>
+            <td>${d.name}${d.bi ? '<span class="builtin-pill">built-in</span>' : ''}</td>
+            <td><span class="cat-badge cat-${d.cat}">${d.cat}</span></td>
+            <td>${d.video
+              ? `<button class="btn-vid-sm" onclick="openVideoModal('${d.id}')">▶ ${videoTypeName(d.video)}</button>`
+              : `<span style="font-size:11px;color:var(--text-3)">None</span>`}
+            </td>
+            <td style="display:flex;gap:3px">
+              <button class="btn-icon" title="${d.bi?'Add/change video URL':'Edit'}"
+                onclick="${d.bi ? `editBuiltinVideo('${d.id}')` : `openDrillEditor('${d.id}')`}">
+                ${d.bi ? '🎬' : '✏️'}
+              </button>
+              ${!d.bi ? `<button class="btn-icon" title="Delete" onclick="deleteCustom('${d.id}')">🗑</button>` : ''}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function editBuiltinVideo(id) {
+  const d = getDrill(id);
+  const cur = S.overrides[id] || '';
+  const url = prompt(`Video URL for "${d.name}"\n\nYouTube, Instagram or Google Drive link.\nLeave blank to remove.`, cur);
+  if (url === null) return;
+  if (url.trim()) S.overrides[id] = url.trim();
+  else delete S.overrides[id];
+  renderMgrTable();
+  renderGroup('field'); renderGroup('off');
+  toast('Video URL updated ✓','ok');
+}
+
+function deleteCustom(id) {
+  if (!confirm('Delete this custom drill?')) return;
+  S.custom = S.custom.filter(d=>d.id!==id);
+  renderMgrTable();
+  renderPickerCats(document.getElementById('drillSearch').value.toLowerCase());
+  toast('Drill deleted','ok');
+}
+
+function importCSV() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.csv';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      const lines = ev.target.result.split('\n').filter(l=>l.trim());
+      let n = 0;
+      lines.slice(1).forEach(line => {
+        const p = line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+        if (p[0]) {
+          S.custom.push({id:'C'+Date.now()+n, name:p[0], cat:p[1]||'Custom', desc:p[2]||'', video:p[3]||'', bi:false});
+          n++;
+        }
+      });
+      renderMgrTable(); renderPickerCats('');
+      toast(`${n} drills imported ✓`,'ok');
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  BULLPEN
+// ─────────────────────────────────────────────────────────────
+function toggleBullpen() {
+  bullpenOpen = !bullpenOpen;
+  document.getElementById('bullpenBar').classList.toggle('collapsed', !bullpenOpen);
+  document.getElementById('bullpenToggleBtn').textContent = bullpenOpen ? '▾ collapse' : '▸ expand';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MODAL HELPERS
+// ─────────────────────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id==='mgrBackdrop') renderMgrTable();
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id==='videoBackdrop') document.getElementById('videoWrap').innerHTML='';
+}
+function backdropClose(e, id) {
+  if (e.target.id === id) closeModal(id);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SAVE / LOAD
+// ─────────────────────────────────────────────────────────────
+function captureInputs() {
+  S.title        = document.getElementById('sessionTitle').textContent.trim();
+  S.date         = document.getElementById('sessionDate').value;
+  S.startTime    = document.getElementById('sessionStart').value;
+  S.warmupDur    = parseInt(document.getElementById('warmupDuration').value)||20;
+  S.warmupNotes  = document.getElementById('warmupNotes').value;
+  S.sessionNotes = document.getElementById('sessionNotes').value;
+  S.coachContact = document.getElementById('coachContact').value;
+  S.firebaseUrl  = (document.getElementById('firebaseUrl').value||'').trim().replace(/\/$/, '');
+}
+function saveSession() {
+  captureInputs();
+  localStorage.setItem('ebc_v2', JSON.stringify(S));
+  toast('Session saved ✓','ok');
+}
+function loadSession() {
+  const raw = localStorage.getItem('ebc_v2');
+  if (!raw) { toast('No saved session found','err'); return; }
+  try {
+    Object.assign(S, JSON.parse(raw));
+    renderAll();
+    toast('Session loaded ✓','ok');
+  } catch(e) { toast('Could not load session','err'); }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EXPORT
+// ─────────────────────────────────────────────────────────────
+function exportText() {
+  captureInputs();
+  const fp = S.fieldPri, other = fp==='A'?'AAA':'A';
+  let out = `EBC TRAINING SESSION\n${S.title}\n${S.date} @ ${S.startTime}\nField Priority: ${fp} Team\n\n`;
+  out += `WARMUP (${S.warmupDur} min)\n${S.warmupNotes||'Dynamic stretch, throwing warmup'}\n\n`;
+
+  const ms = mainStart() || 0;
+  out += `────────────────────────────\nFIELD GROUP (${fp} TEAM)\n────────────────────────────\n`;
+  let t = ms;
+  S.field.forEach(sd => {
+    const d = getDrill(sd.did); if (!d) return;
+    const st = sd.start || fmtTime(t);
+    out += `  ${st}  ${d.name} — ${sd.dur||20} min`;
+    if (sd.notes) out += `\n         ${sd.notes}`;
+    out += '\n';
+    t += parseInt(sd.dur)||20;
+  });
+
+  out += `\n────────────────────────────\nOFF-FIELD GROUP (${other} TEAM)\n────────────────────────────\n`;
+  t = ms;
+  S.off.forEach(sd => {
+    const d = getDrill(sd.did); if (!d) return;
+    const st = sd.start || fmtTime(t);
+    out += `  ${st}  ${d.name} — ${sd.dur||20} min`;
+    if (sd.notes) out += `\n         ${sd.notes}`;
+    out += '\n';
+    t += parseInt(sd.dur)||20;
+  });
+
+  if (S.sessionNotes) out += `\nNOTES\n${S.sessionNotes}\n`;
+
+  const blob = new Blob([out],{type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `EBC_Session_${S.date||'session'}.txt`;
+  a.click();
+  toast('Exported ✓','ok');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DOWNLOAD UPDATED APP
+// ─────────────────────────────────────────────────────────────
+function downloadApp() {
+  captureInputs();
+  let html = document.documentElement.outerHTML;
+  const customJson    = JSON.stringify(S.custom, null, 2);
+  const overridesJson = JSON.stringify(S.overrides, null, 2);
+  html = html
+    .replace(/const CUSTOM_DRILLS = \[[\s\S]*?\];/, `const CUSTOM_DRILLS = ${customJson};`)
+    .replace(/const VIDEO_OVERRIDES = \{[\s\S]*?\};/, `const VIDEO_OVERRIDES = ${overridesJson};`);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([html],{type:'text/html'}));
+  a.download = 'EBC_Session_Builder_V2.html';
+  a.click();
+  toast('Updated app downloaded ✓','ok');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PRINT
+// ─────────────────────────────────────────────────────────────
+function doPrint() {
+  captureInputs();
+  generatePrintQRs();
+  window.print();
+}
+
+function generatePrintQRs() {
+  document.querySelectorAll('.print-video-link').forEach(block => {
+    block.style.display = 'flex';
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  BULLPEN
+// ─────────────────────────────────────────────────────────────
+function renderBullpenSlots() {
+  renderBpRequests();
+  renderBpAllocations();
+}
+
+function renderBpRequests() {
+  const list = document.getElementById('bpReqList');
+  const count = document.getElementById('bpReqCount');
+  if (!list) return;
+  count.textContent = S.bullpenRequests.length;
+  if (!S.bullpenRequests.length) {
+    list.innerHTML = `<div class="bp-req-empty">No requests yet.<br>Players submit via the share link.</div>`;
+    return;
+  }
+  list.innerHTML = S.bullpenRequests.map(r => {
+    const isAllocated = Object.values(S.bullpenAllocations).some(a => a && a.reqId === r.id);
+    return `
+      <div class="bp-req-card${isAllocated ? ' allocated' : ''}">
+        <div class="bp-req-info">
+          <div class="bp-req-name">${escHtml(r.name)}</div>
+          <div class="bp-req-detail">${escHtml(r.team||'')}${r.workingOn ? ' &mdash; '+escHtml(r.workingOn) : ''}</div>
+        </div>
+        <span class="bp-req-type ${r.type==='Catching'?'catching':'pitching'}">${r.type||'Pitching'}</span>
+        <div class="bp-req-actions">
+          <button class="btn-icon" title="Assign to slot" onclick="assignReqToSlot('${r.id}')">&#8599;</button>
+          <button class="btn-icon" title="Remove" onclick="removeReq('${r.id}')">&#10005;</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderBpAllocations() {
+  const list = document.getElementById('bpSlotList');
+  if (!list) return;
+  list.innerHTML = BULLPEN_TIMES.map(t => {
+    const slot = S.bullpenAllocations[t] || {};
+    const p = slot.pitcher, c = slot.catcher;
+    return `
+      <div class="bp-slot-row">
+        <span class="bp-slot-time">${t}</span>
+        <div class="bp-slot-subs">
+          <div class="bp-slot-sub">
+            <span class="bp-slot-sub-role p">P</span>
+            ${p ? `<span class="bp-slot-sub-name">${escHtml(p.name)}</span>
+                   <button class="bp-slot-clear-btn" onclick="clearSubSlot('${t}','pitcher')">&#10005;</button>`
+               : `<span class="bp-slot-sub-empty">Unallocated</span>
+                  <button class="bp-slot-assign-btn" onclick="openAssignSlot('${t}','pitcher')">Assign &#9662;</button>`}
+          </div>
+          <div class="bp-slot-sub">
+            <span class="bp-slot-sub-role c">C</span>
+            ${c ? `<span class="bp-slot-sub-name">${escHtml(c.name)}</span>
+                   <button class="bp-slot-clear-btn" onclick="clearSubSlot('${t}','catcher')">&#10005;</button>`
+               : `<span class="bp-slot-sub-empty">Unallocated</span>
+                  <button class="bp-slot-assign-btn" onclick="openAssignSlot('${t}','catcher')">Assign &#9662;</button>`}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function removeReq(id) {
+  S.bullpenRequests = S.bullpenRequests.filter(r => r.id !== id);
+  BULLPEN_TIMES.forEach(t => {
+    const slot = S.bullpenAllocations[t] || {};
+    if (slot.pitcher?.reqId === id) slot.pitcher = null;
+    if (slot.catcher?.reqId === id) slot.catcher = null;
+  });
+  renderBullpenSlots();
+  // Push deletion to Firebase so poll doesn't restore it
+  fbPushRequests();
+  fbPushAllocations();
+}
+
+async function fbPushRequests() {
+  if (!S.firebaseUrl) return;
+  // Convert array to keyed object (Firebase stores POST results as keyed objects,
+  // so we write back as {id: request} to match what fbPull reads)
+  const keyed = {};
+  S.bullpenRequests.forEach(r => { keyed[r.id] = r; });
+  try {
+    await fetch(fbPath(S.date, 'requests'), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.keys(keyed).length ? keyed : null)
+    });
+  } catch(e) { console.warn('Firebase push requests error', e); }
+}
+
+function clearSubSlot(time, role) {
+  if (!S.bullpenAllocations[time]) return;
+  S.bullpenAllocations[time][role] = null;
+  renderBullpenSlots();
+  fbPushAllocations();
+}
+
+function assignReqToSlot(reqId) {
+  const req = S.bullpenRequests.find(r => r.id === reqId);
+  if (!req) return;
+  const role = req.type === 'Catching' ? 'catcher' : 'pitcher';
+  const free = BULLPEN_TIMES.find(t => {
+    const slot = S.bullpenAllocations[t] || {};
+    return !slot[role];
+  });
+  if (!free) { toast(`No free ${role} slots available`, 'err'); return; }
+  if (!S.bullpenAllocations[free]) S.bullpenAllocations[free] = {};
+  S.bullpenAllocations[free][role] = { reqId, name: req.name, team: req.team, workingOn: req.workingOn };
+  renderBullpenSlots();
+  fbPushAllocations();
+  toast(`${req.name} assigned to ${free} (${role}) ✓`, 'ok');
+}
+
+function openAssignSlot(time, role) {
+  const roleType = role === 'pitcher' ? 'Pitching' : 'Catching';
+  const unalloc = S.bullpenRequests.filter(r => {
+    if (r.type !== roleType) return false;
+    return !BULLPEN_TIMES.some(t => (S.bullpenAllocations[t]||{})[role]?.reqId === r.id);
+  });
+  if (!unalloc.length) {
+    _pendingAssignTime = time;
+    _pendingAssignRole = role;
+    openReqModal('coach');
+    return;
+  }
+  // Inline dropdown
+  const list = document.getElementById('bpSlotList');
+  const rows = list.querySelectorAll('.bp-slot-row');
+  const idx  = BULLPEN_TIMES.indexOf(time);
+  if (idx < 0 || !rows[idx]) return;
+  const assignBtn = rows[idx].querySelectorAll('.bp-slot-assign-btn');
+  const btnIdx    = role === 'pitcher' ? 0 : 1;
+  if (!assignBtn[btnIdx]) return;
+  assignBtn[btnIdx].outerHTML =
+    `<select class="form-sel" style="height:22px;font-size:10.5px;width:120px"
+       onchange="assignFromSelect('${time}','${role}',this.value)">
+       <option value="">Choose…</option>
+       ${unalloc.map(r => `<option value="${r.id}">${escAttr(r.name)}</option>`).join('')}
+       <option value="__manual__">Enter manually…</option>
+     </select>`;
+}
+
+function assignFromSelect(time, role, val) {
+  if (!val) return;
+  if (val === '__manual__') {
+    _pendingAssignTime = time;
+    _pendingAssignRole = role;
+    openReqModal('coach');
+    return;
+  }
+  const req = S.bullpenRequests.find(r => r.id === val);
+  if (req) {
+    if (!S.bullpenAllocations[time]) S.bullpenAllocations[time] = {};
+    S.bullpenAllocations[time][role] = { reqId: req.id, name: req.name, team: req.team, workingOn: req.workingOn };
+    renderBullpenSlots();
+    fbPushAllocations();
+    toast(`${req.name} assigned to ${time} ✓`, 'ok');
+  }
+}
+
+function escAttr(str) {
+  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  REQUEST MODAL  (shared by players in RO view + coach in editor)
+// ─────────────────────────────────────────────────────────────
+let _reqMode           = 'player';
+let _pendingAssignTime = null;
+let _pendingAssignRole = null;
+let _reqType           = 'Pitching';
+
+function openReqModal(mode) {
+  _reqMode = mode || 'player';
+  _reqType = 'Pitching';
+
+  // Reset form inputs
+  document.getElementById('reqName').value      = '';
+  document.getElementById('reqTeam').value      = '';
+  document.getElementById('reqWorkingOn').value = '';
+  document.getElementById('reqTypePitching').classList.add('active');
+  document.getElementById('reqTypeCatching').classList.remove('active');
+
+  // Reset modal sections — always show form, hide confirmation
+  document.getElementById('reqFormSection').style.display    = 'block';
+  document.getElementById('reqConfirmSection').style.display = 'none';
+
+  const actionBtn = document.getElementById('reqActionBtn');
+  const cancelBtn = document.getElementById('reqCancelBtn');
+  const title     = document.getElementById('reqModalTitle');
+
+  actionBtn.disabled  = false;
+  actionBtn.onclick   = submitReq;
+  cancelBtn.style.display = '';
+
+  if (_reqMode === 'coach') {
+    title.textContent     = 'Add Request';
+    actionBtn.textContent = '+ Save Request';
+  } else {
+    title.textContent    = 'Request a Bullpen Slot';
+    actionBtn.innerHTML  = '&#10003; Submit Request';
+  }
+
+  document.getElementById('roRequestModal').style.display = 'flex';
+  document.getElementById('reqName').focus();
+}
+
+function setReqType(type) {
+  _reqType = type;
+  document.getElementById('reqTypePitching').classList.toggle('active', type === 'Pitching');
+  document.getElementById('reqTypeCatching').classList.toggle('active', type === 'Catching');
+}
+
+// No longer drives the modal UI — kept as no-op for safety
+function updateReqPreview() {}
+
+function submitReq() {
+  const name      = document.getElementById('reqName').value.trim();
+  const team      = document.getElementById('reqTeam').value;
+  const workingOn = document.getElementById('reqWorkingOn').value.trim();
+  if (!name) { toast('Please enter your name', 'err'); return; }
+
+  // ── Coach mode: save directly to local state ──
+  if (_reqMode === 'coach') {
+    const newReq = { id: uid(), name, team, type: _reqType, workingOn, ts: Date.now() };
+    S.bullpenRequests.push(newReq);
+    if (_pendingAssignTime && _pendingAssignRole) {
+      if (!S.bullpenAllocations[_pendingAssignTime]) S.bullpenAllocations[_pendingAssignTime] = {};
+      S.bullpenAllocations[_pendingAssignTime][_pendingAssignRole] = { reqId: newReq.id, name, team, workingOn };
+      _pendingAssignTime = null;
+      _pendingAssignRole = null;
+      fbPushAllocations();
+    }
+    renderBullpenSlots();
+    roCloseRequest();
+    toast('Request added \u2713', 'ok');
+    return;
+  }
+
+  // ── Player mode ──
+  const req   = { id: 'r' + Date.now(), name, team, type: _reqType, workingOn, ts: Date.now() };
+  const fbUrl = window._roSession?.firebaseUrl;
+
+  if (fbUrl) {
+    // Firebase configured — post directly, modal closes via fbPlayerPost callback
+    fbPlayerPost(fbUrl, window._roSession.date, req);
+    return;
+  }
+
+  // No Firebase — build a relay URL with this request embedded in the session data,
+  // then show sharing options so the player can send the link to their coach
+  const roData     = window._roData || {};
+  const updated    = { ...roData, bullpenRequests: [...(roData.bullpenRequests || []), req] };
+  const relayUrl   = window.location.href.split('#')[0]
+    + '#s=' + LZString.compressToEncodedURIComponent(JSON.stringify(updated));
+
+  const contact    = (window._roSession || {}).contact || '';
+  const sessionLbl = [roData.title, roData.date].filter(Boolean).join(' \u2013 ');
+  const shareText  = `Hi, here\u2019s my bullpen request for ${sessionLbl || 'EBC training'}: `;
+
+  let btns = '';
+  if (/^\+?[\d\s\-()\u200d]{7,}$/.test(contact)) {
+    const wa = encodeURIComponent(shareText + relayUrl);
+    btns += `<a href="https://wa.me/${contact.replace(/\D/g,'')}?text=${wa}" target="_blank"
+               class="btn btn-ghost" style="font-size:12px">&#128241; WhatsApp coach</a>`;
+  }
+  if (contact.includes('@')) {
+    const sub  = encodeURIComponent('Bullpen request \u2013 ' + (sessionLbl || 'EBC'));
+    const body = encodeURIComponent(shareText + '\n\n' + relayUrl);
+    btns += `<a href="mailto:${contact}?subject=${sub}&body=${body}"
+               class="btn btn-ghost" style="font-size:12px">&#9993; Email coach</a>`;
+  }
+  btns += `<button class="btn btn-ghost" style="font-size:12px"
+    onclick="navigator.clipboard.writeText(document.getElementById('reqRelayUrl').value)
+      .then(()=>toast('Link copied \u2713','ok'))">&#128203; Copy link</button>`;
+
+  document.getElementById('reqConfirmMsg').innerHTML =
+    `<strong style="color:var(--text)">${escHtml(name)}</strong>, your request is ready!<br>
+     <span style="color:var(--text-3)">Send the link below to your coach. It contains your request
+     and the full session plan. Coaches assign slots by 16:00 on the day.</span>`;
+
+  document.getElementById('reqShareBtns').innerHTML =
+    btns + `<input id="reqRelayUrl" type="text" readonly value="${escAttr(relayUrl)}"
+      style="width:100%;margin-top:8px;font-size:10.5px;color:var(--text-3);
+             height:28px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 6px"
+      onclick="this.select()">`;
+
+  // Swap to confirmation state
+  document.getElementById('reqFormSection').style.display    = 'none';
+  document.getElementById('reqConfirmSection').style.display = 'block';
+  document.getElementById('reqCancelBtn').style.display      = 'none';
+  const actionBtn      = document.getElementById('reqActionBtn');
+  actionBtn.textContent = 'Done';
+  actionBtn.onclick     = roCloseRequest;
+}
+
+function roCloseRequest() {
+  document.getElementById('roRequestModal').style.display = 'none';
+  _pendingAssignTime = null;
+  _pendingAssignRole = null;
+  // Restore cancel button for next open
+  const cb = document.getElementById('reqCancelBtn');
+  if (cb) cb.style.display = '';
+}
+// ─────────────────────────────────────────────────────────────
+//  FIREBASE REALTIME DATABASE  (optional — works without it)
+// ─────────────────────────────────────────────────────────────
+// Requires a free Firebase Realtime Database.
+// Setup: firebase.google.com → New project → Realtime Database
+//        → Start in test mode → copy the database URL into the
+//        "Firebase URL" field in the bullpen header.
+// Data path: {dbUrl}/ebc/{date}/  (requests + allocations)
+// ─────────────────────────────────────────────────────────────
+
+function fbPath(date, sub) {
+  const d = (date || S.date || 'nodate').replace(/[^0-9\-]/g, '');
+  return `${S.firebaseUrl}/ebc/${d}/${sub}.json`;
+}
+
+function fbStatusUpdate() {
+  const el  = document.getElementById('fbStatus');
+  const txt = document.getElementById('fbStatusTxt');
+  if (!el) return;
+  const url = S.firebaseUrl || (document.getElementById('firebaseUrl')||{}).value || '';
+  if (!url) {
+    el.className = 'fb-status idle';
+    txt.textContent = 'Not connected';
+  } else {
+    el.className = 'fb-status connected';
+    txt.textContent = 'Connected';
+  }
+}
+
+// Pull requests from Firebase into editor state
+async function fbPull() {
+  if (!S.firebaseUrl) { toast('No Firebase URL set', 'err'); return; }
+  const statusTxt = document.getElementById('fbStatusTxt');
+  if (statusTxt) statusTxt.textContent = 'Syncing…';
+  try {
+    const [reqRes, allocRes] = await Promise.all([
+      fetch(fbPath(S.date, 'requests')),
+      fetch(fbPath(S.date, 'allocations'))
+    ]);
+    // Requests: Firebase returns an object {key: request, ...} or null
+    if (reqRes.ok) {
+      const data = await reqRes.json();
+      if (data) {
+        const incoming = Object.values(data);
+        // Only add genuinely new requests — never restore ones we already have
+        // (deletions are pushed back immediately via fbPushRequests)
+        const knownIds = new Set(S.bullpenRequests.map(r => r.id));
+        incoming.forEach(r => {
+          if (r && r.id && !knownIds.has(r.id)) {
+            S.bullpenRequests.push(r);
+            knownIds.add(r.id);
+          }
+        });
+      }
+    }
+    // Allocations: plain object we PUT/GET
+    if (allocRes.ok) {
+      const data = await allocRes.json();
+      if (data) Object.assign(S.bullpenAllocations, data);
+    }
+    renderBullpenSlots();
+    if (statusTxt) statusTxt.textContent = 'Synced ✓';
+    setTimeout(fbStatusUpdate, 2000);
+  } catch(e) {
+    const el = document.getElementById('fbStatus');
+    if (el) { el.className = 'fb-status error'; }
+    if (statusTxt) statusTxt.textContent = 'Sync error';
+    console.warn('Firebase pull error', e);
+  }
+}
+
+// Push allocations to Firebase after coach changes
+async function fbPushAllocations() {
+  if (!S.firebaseUrl) return;
+  try {
+    await fetch(fbPath(S.date, 'allocations'), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(S.bullpenAllocations)
+    });
+  } catch(e) { console.warn('Firebase push error', e); }
+}
+
+// Called by player in read-only view to post a request
+async function fbPlayerPost(dbUrl, date, req) {
+  const path = `${dbUrl}/ebc/${(date||'nodate').replace(/[^0-9\-]/g,'')}/requests.json`;
+  const btn = document.getElementById('reqActionBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req)
+    });
+    if (!res.ok) throw new Error(res.status);
+    roCloseRequest();
+    // Show confirmation banner
+    showROConfirmation(req.name, req.type);
+  } catch(e) {
+    toast('Could not submit — check your connection', 'err');
+    console.warn('Firebase post error', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#128203; Copy Message'; }
+  }
+}
+
+function showROConfirmation(name, type) {
+  let banner = document.getElementById('roBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'roBanner';
+    banner.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+      background:var(--green-bg);border:1px solid var(--green-bdr);color:var(--green);
+      padding:12px 20px;border-radius:var(--r);font-size:13px;font-weight:600;
+      z-index:99999;text-align:center;max-width:340px;box-shadow:var(--shadow)`;
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `&#10004; Request submitted!<br><span style="font-weight:400;font-size:12px">
+    ${escHtml(name)} (${type}) — coaches will confirm slots by 16:00 on the day.</span>`;
+  banner.style.display = 'block';
+  setTimeout(() => { if (banner) banner.style.display = 'none'; }, 6000);
+}
+
+// Auto-poll every 25s in editor when Firebase is configured
+let _fbPollTimer = null;
+function fbStartPolling() {
+  if (_fbPollTimer) clearInterval(_fbPollTimer);
+  if (!S.firebaseUrl) return;
+  fbPull(); // immediate pull on start
+  _fbPollTimer = setInterval(() => { if (S.firebaseUrl) fbPull(); }, 25000);
+  // Also pull on window focus
+  window.addEventListener('focus', () => { if (S.firebaseUrl) fbPull(); }, { once: false });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SHARE LINK
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  PUBLISH  (Firebase) + SHARE LINK
+// ─────────────────────────────────────────────────────────────
+
+function sessionPayload() {
+  captureInputs();
+  return {
+    title:              S.title,
+    date:               S.date,
+    startTime:          S.startTime,
+    fieldPri:           S.fieldPri,
+    warmupDur:          S.warmupDur,
+    warmupNotes:        S.warmupNotes,
+    sessionNotes:       S.sessionNotes,
+    field:              S.field,
+    off:                S.off,
+    bullpenRequests:    S.bullpenRequests,
+    bullpenAllocations: S.bullpenAllocations,
+    coachContact:       S.coachContact,
+    firebaseUrl:        S.firebaseUrl,
+    custom:             S.custom,
+    overrides:          S.overrides
+  };
+}
+
+async function publishSession() {
+  if (!S.firebaseUrl) {
+    toast('Set a Firebase URL in the Bullpen bar first', 'err');
+    return;
+  }
+  captureInputs();
+  const date    = S.date || new Date().toISOString().slice(0,10);
+  const payload = sessionPayload();
+  const btn     = document.querySelector('[onclick="publishSession()"]');
+  if (btn) { btn.textContent = 'Publishing…'; btn.disabled = true; }
+  try {
+    const res = await fetch(
+      `${S.firebaseUrl}/ebc/sessions/${date}.json`,
+      { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }
+    );
+    if (!res.ok) throw new Error(res.status);
+    toast('Session published \u2713', 'ok');
+    // Auto-open share modal to show the stable link
+    openShareModal();
+  } catch(e) {
+    toast('Publish failed \u2014 check Firebase URL', 'err');
+    console.warn('Publish error', e);
+  } finally {
+    if (btn) { btn.innerHTML = '&#9654; Publish'; btn.disabled = false; }
+  }
+}
+
+function stableShareUrl() {
+  const date = S.date || new Date().toISOString().slice(0,10);
+  return window.location.href.split('#')[0] + '#live=' + date;
+}
+
+function legacyShareUrl() {
+  const json       = JSON.stringify(sessionPayload());
+  const compressed = LZString.compressToEncodedURIComponent(json);
+  return window.location.href.split('#')[0] + '#s=' + compressed;
+}
+
+function openShareModal() {
+  captureInputs();
+  const hasFb  = !!S.firebaseUrl;
+  const url    = hasFb ? stableShareUrl() : legacyShareUrl();
+  document.getElementById('shareUrlBox') && (document.getElementById('shareUrlBox').textContent = url);
+
+  const body = document.getElementById('shareModalBody');
+  const title = document.getElementById('shareModalTitle');
+
+  if (hasFb) {
+    title.textContent = 'Session Link';
+    body.innerHTML = `
+      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:12px">
+        This is your <strong style="color:var(--text)">permanent link</strong> for today's session.
+        Send it once — every time you hit <strong style="color:var(--amber)">&#9654; Publish</strong>,
+        the same link automatically shows the latest version.
+      </p>
+      <div class="share-url-box" id="shareUrlBox">${escHtml(url)}</div>
+      <div class="share-note" style="margin-top:10px">
+        Players who open this link will always see the most recently published plan,
+        and can submit bullpen requests directly in the app.
+      </div>`;
+  } else {
+    title.textContent = 'Share Link (snapshot)';
+    body.innerHTML = `
+      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:12px">
+        Firebase is not configured, so this link encodes the full session as a
+        one-time snapshot. Each change generates a new long link.
+        Add a Firebase URL in the Bullpen bar for a permanent short link.
+      </p>
+      <div class="share-url-box" id="shareUrlBox" style="font-size:10px;max-height:70px">${escHtml(url)}</div>`;
+  }
+  openModal('shareBackdrop');
+}
+
+function copyShareLink() {
+  const box = document.getElementById('shareUrlBox');
+  const url = box ? box.textContent.trim() : '';
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copyLinkBtn');
+    btn.textContent = '\u2713 Copied!';
+    setTimeout(() => { btn.innerHTML = '&#128203; Copy Link'; }, 2000);
+  }).catch(() => {
+    if (box) { const r = document.createRange(); r.selectNodeContents(box); window.getSelection().removeAllRanges(); window.getSelection().addRange(r); }
+    toast('Press Ctrl+C / Cmd+C to copy', 'ok');
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  READ-ONLY VIEW  — handles both #live= (Firebase) and #s= (legacy)
+// ─────────────────────────────────────────────────────────────
+async function tryReadOnlyMode() {
+  const hash = window.location.hash;
+
+  // ── New stable format: #live=YYYY-MM-DD ──
+  if (hash.startsWith('#live=')) {
+    const date  = hash.slice(6);
+    const fbUrl = 'https://ebc-bullpen-default-rtdb.europe-west1.firebasedatabase.app';
+
+    // Show a loading screen immediately
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('readOnlyView').style.display = 'block';
+    document.getElementById('readOnlyView').innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                  height:100vh;gap:14px;color:var(--text-2);font-family:'DM Sans',sans-serif">
+        <span class="logo-badge" style="font-family:'Oswald',sans-serif;font-weight:700;
+          font-size:14px;padding:4px 10px;border-radius:4px;background:var(--amber);color:#000;
+          letter-spacing:.08em">EBC</span>
+        <span style="font-size:14px">Loading session…</span>
+      </div>`;
+
+    try {
+      const res  = await fetch(`${fbUrl}/ebc/sessions/${date}.json`);
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      if (!data) throw new Error('empty');
+      // Restore the full read-only view shell before rendering
+      document.getElementById('readOnlyView').innerHTML = `
+        <div class="ro-wrap">
+          <div class="ro-header">
+            <span class="ro-logo">EBC</span>
+            <div style="flex:1">
+              <div class="ro-title" id="roTitle">Training Session</div>
+              <div class="ro-meta" id="roMeta"></div>
+            </div>
+          </div>
+          <div class="ro-section" id="roWarmupSection"></div>
+          <div class="ro-section"><div class="ro-cols" id="roCols"></div></div>
+          <div class="ro-section" id="roNotesSection"></div>
+          <div class="ro-section" id="roBullpenSection"></div>
+        </div>`;
+      renderReadOnly(data);
+    } catch(e) {
+      document.getElementById('readOnlyView').innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    height:100vh;gap:10px;color:var(--text-2);font-family:'DM Sans',sans-serif;text-align:center;padding:20px">
+          <span class="logo-badge" style="font-family:'Oswald',sans-serif;font-weight:700;
+            font-size:14px;padding:4px 10px;border-radius:4px;background:var(--amber);color:#000">EBC</span>
+          <span style="font-size:15px;color:var(--text)">Session not found</span>
+          <span style="font-size:13px">No published session found for <strong>${escHtml(date)}</strong>.<br>
+            Ask your coach to publish the session plan and reshare the link.</span>
+        </div>`;
+      console.warn('Could not load session from Firebase:', e);
+    }
+    return true;
+  }
+
+  // ── Legacy compressed format: #s=... ──
+  if (hash.startsWith('#s=')) {
+    try {
+      const data = JSON.parse(LZString.decompressFromEncodedURIComponent(hash.slice(3)));
+      renderReadOnly(data);
+      return true;
+    } catch(e) {
+      console.warn('Could not decode share link:', e);
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function renderReadOnly(data) {
+  document.getElementById('app').style.display = 'none';
+  document.querySelectorAll('.backdrop').forEach(el => el.style.display = 'none');
+  document.getElementById('readOnlyView').style.display = 'block';
+
+  // Store full session data for relay-URL building (no-Firebase fallback)
+  window._roData = data;
+
+  const sharedLib = [
+    ...BUILTIN.map(d => ({...d, video: (data.overrides||{})[d.id] || d.video})),
+    ...(data.custom || [])
+  ];
+  const getDr = id => sharedLib.find(d => d.id === id);
+
+  // ── Header ──
+  document.getElementById('roTitle').textContent = data.title || 'Training Session';
+  const fp = data.fieldPri || 'A', other = fp === 'A' ? 'AAA' : 'A';
+  const dateStr = data.date
+    ? new Date(data.date + 'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+    : '';
+  document.getElementById('roMeta').innerHTML = `
+    ${dateStr ? `<span class="ro-meta-item">&#128197; <span>${dateStr}</span></span>` : ''}
+    ${data.startTime ? `<span class="ro-meta-item">&#128336; <span>${data.startTime}</span></span>` : ''}
+    <span class="ro-meta-item">&#127966; Field priority: <span>${fp} Team</span></span>`;
+
+  // ── Warmup ──
+  document.getElementById('roWarmupSection').innerHTML = `
+    <div class="ro-section-title">Warmup</div>
+    <div class="ro-warmup">
+      <div class="ro-warmup-dur">&#9201; ${data.warmupDur || 20} minutes</div>
+      ${data.warmupNotes ? `<div class="ro-warmup-notes">${escHtml(data.warmupNotes)}</div>` : ''}
+    </div>`;
+
+  // ── Drill columns ──
+  const vtLabel = t => ({youtube:'&#9654; YouTube', instagram:'&#9654; Instagram', gdrive:'&#9654; Drive Video', unknown:'&#9654; Video'}[t] || '');
+
+  function drillsHtml(arr, ms) {
+    if (!arr || !arr.length) return '<div class="ro-empty">No drills scheduled.</div>';
+    let running = ms || 0;
+    return arr.map((sd, i) => {
+      const d = getDr(sd.did);
+      if (!d) return '';
+      const autoT = fmtTime(running + arr.slice(0,i).reduce((s,x) => s + (parseInt(x.dur)||20), 0));
+      const displayTime = sd.start || autoT;
+      const vt = videoType(d.video);
+      return `
+        <div class="ro-drill">
+          <div class="ro-drill-top">
+            <span class="ro-drill-time">${displayTime}</span>
+            <span class="ro-drill-name">${escHtml(d.name)}</span>
+            <span class="ro-drill-dur">${sd.dur||20} min</span>
+          </div>
+          <div class="ro-drill-meta">
+            <span class="cat-badge cat-${d.cat}">${d.cat}</span>
+            ${d.video ? `<button class="ro-video-link" onclick="roOpenVideo('${escAttr(d.video)}','${escAttr(d.name)}')">${vtLabel(vt)}</button>` : ''}
+          </div>
+          ${sd.notes ? `<div class="ro-drill-notes">${escHtml(sd.notes)}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  const ms = (() => {
+    const s = parseMin(data.startTime);
+    return s == null ? null : s + (parseInt(data.warmupDur)||20);
+  })();
+
+  document.getElementById('roCols').innerHTML = `
+    <div class="ro-group">
+      <div class="ro-group-hd">
+        <div class="ro-group-hd-dot" style="background:var(--green)"></div>
+        <span class="ro-group-hd-name">FIELD GROUP</span>
+        <span class="ro-group-hd-team">${fp} Team</span>
+      </div>
+      ${drillsHtml(data.field, ms)}
+    </div>
+    <div class="ro-group">
+      <div class="ro-group-hd">
+        <div class="ro-group-hd-dot" style="background:var(--blue)"></div>
+        <span class="ro-group-hd-name">OFF-FIELD GROUP</span>
+        <span class="ro-group-hd-team">${other} Team</span>
+      </div>
+      ${drillsHtml(data.off, ms)}
+    </div>`;
+
+  // ── Session notes ──
+  const ns = document.getElementById('roNotesSection');
+  ns.innerHTML = data.sessionNotes
+    ? `<div class="ro-section-title">Session Notes</div>
+       <div class="ro-notes-box">${escHtml(data.sessionNotes)}</div>`
+    : '';
+
+  // ── Bullpen section ──
+  const requests    = data.bullpenRequests    || [];
+  const allocations = data.bullpenAllocations || {};
+  const contact     = data.coachContact       || '';
+  const bs          = document.getElementById('roBullpenSection');
+
+  // Store for request modal
+  window._roSession = {
+    title:       data.title,
+    date:        data.date,
+    contact:     contact,
+    firebaseUrl: data.firebaseUrl || ''
+  };
+
+  bs.innerHTML = `
+    <div class="ro-section-title">&#9679; Bullpen Sign-Up</div>
+    <div class="ro-bullpen-split">
+
+      <!-- Left: requests -->
+      <div>
+        <div class="ro-bp-panel-title">Requests (${requests.length})</div>
+        <div class="ro-req-list" id="roReqList"></div>
+        <button class="ro-req-slot-btn" onclick="openReqModal('player')">&#43; Request a Bullpen Slot</button>
+      </div>
+
+      <!-- Right: allocated time slots -->
+      <div>
+        <div class="ro-bp-panel-title">Allocated Slots</div>
+        <div class="ro-alloc-list" id="roAllocList"></div>
+      </div>
+
+    </div>`;
+
+  // Render requests
+  const reqList = document.getElementById('roReqList');
+  if (!requests.length) {
+    reqList.innerHTML = `<div class="ro-req-empty">No requests submitted yet.<br>Use the button below to request a slot.</div>`;
+  } else {
+    reqList.innerHTML = requests.map(r => `
+      <div class="ro-req-card">
+        <div class="ro-req-info">
+          <div class="ro-req-name">${escHtml(r.name)}</div>
+          ${r.team    ? `<div class="ro-req-team">${escHtml(r.team)}</div>`              : ''}
+          ${r.workingOn ? `<div class="ro-req-working">Working on: ${escHtml(r.workingOn)}</div>` : ''}
+        </div>
+        <span class="ro-req-type-badge ${(r.type||'Pitching').toLowerCase()}">${r.type||'Pitching'}</span>
+      </div>`).join('');
+  }
+
+  // Render allocated slots
+  const renderROAlloc = (allocs) => {
+    const el = document.getElementById('roAllocList');
+    if (!el) return;
+    el.innerHTML = BULLPEN_TIMES.map(t => {
+      const slot = allocs[t] || {};
+      const p = slot.pitcher, c = slot.catcher;
+      return `
+        <div class="ro-alloc-row">
+          <span class="ro-alloc-time">${t}</span>
+          <div class="ro-alloc-subs">
+            <div class="ro-alloc-sub">
+              <span class="ro-alloc-sub-role p">Pitcher</span>
+              ${p ? `<div><div class="ro-alloc-name">${escHtml(p.name)}</div>
+                         ${p.team||p.workingOn ? `<div class="ro-alloc-detail">${[p.team, p.workingOn ? 'Working on: '+p.workingOn : ''].filter(Boolean).join(' &bull; ')}</div>` : ''}</div>`
+                  : `<div class="ro-alloc-open">Unallocated</div>`}
+            </div>
+            <div class="ro-alloc-sub">
+              <span class="ro-alloc-sub-role c">Catcher</span>
+              ${c ? `<div><div class="ro-alloc-name">${escHtml(c.name)}</div>
+                         ${c.team||c.workingOn ? `<div class="ro-alloc-detail">${[c.team, c.workingOn ? 'Working on: '+c.workingOn : ''].filter(Boolean).join(' &bull; ')}</div>` : ''}</div>`
+                  : `<div class="ro-alloc-open">Unallocated</div>`}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  };
+
+  renderROAlloc(allocations);
+
+  // If Firebase is configured, fetch latest allocations live (share link may be stale)
+  if (data.firebaseUrl) {
+    const fbUrl = data.firebaseUrl.trim().replace(/\/$/, '');
+    const date  = (data.date || '').replace(/[^0-9\-]/g, '');
+    fetch(`${fbUrl}/ebc/${date}/allocations.json`)
+      .then(r => r.ok ? r.json() : null)
+      .then(live => { if (live) renderROAlloc(live); })
+      .catch(() => {});
+    // Also fetch live requests
+    fetch(`${fbUrl}/ebc/${date}/requests.json`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        const reqList = document.getElementById('roReqList');
+        if (!reqList) return;
+        const all = Object.values(data);
+        if (!all.length) return;
+        reqList.innerHTML = all.map(r => `
+          <div class="ro-req-card">
+            <div class="ro-req-info">
+              <div class="ro-req-name">${escHtml(r.name)}</div>
+              ${r.team      ? `<div class="ro-req-team">${escHtml(r.team)}</div>` : ''}
+              ${r.workingOn ? `<div class="ro-req-working">Working on: ${escHtml(r.workingOn)}</div>` : ''}
+            </div>
+            <span class="ro-req-type-badge ${(r.type||'Pitching').toLowerCase()}">${r.type||'Pitching'}</span>
+          </div>`).join('');
+        // Update count in section title
+        const title = document.querySelector('#roBullpenSection .ro-bp-panel-title');
+        if (title && title.textContent.startsWith('Requests')) {
+          title.textContent = `Requests (${all.length})`;
+        }
+      })
+      .catch(() => {});
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  READ-ONLY VIDEO MODAL
+// ─────────────────────────────────────────────────────────────
+function roOpenVideo(url, name) {
+  document.getElementById('roVideoTitle').textContent = name;
+  const content = document.getElementById('roVideoContent');
+  const t = videoType(url);
+  const eu = embedUrl(url);
+
+  if (t === 'youtube' || t === 'gdrive') {
+    content.innerHTML = `<iframe src="${eu}" allowfullscreen allow="autoplay;fullscreen" style="width:100%;aspect-ratio:16/9;border:none;display:block"></iframe>`;
+  } else if (t === 'instagram') {
+    content.innerHTML = `
+      <div class="ro-video-ig">
+        <p>Instagram videos can't be embedded. Tap below to open the post.</p>
+        <a href="${escHtml(url)}" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-flex;margin-top:4px">Open on Instagram &#8599;</a>
+      </div>`;
+  } else {
+    content.innerHTML = `
+      <div class="ro-video-ig">
+        <a href="${escHtml(url)}" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-flex">Open video &#8599;</a>
+      </div>`;
+  }
+  document.getElementById('roVideoModal').classList.add('open');
+}
+
+function roCloseVideo() {
+  document.getElementById('roVideoModal').classList.remove('open');
+  document.getElementById('roVideoContent').innerHTML = '';
+}
+
+// roCloseRequest is defined above in the REQUEST MODAL section
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function tick() {
+  const el = document.getElementById('liveClock');
+  if (el) el.textContent = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(tick, 1000);
+tick();
+
+// ─────────────────────────────────────────────────────────────
+//  TOAST
+// ─────────────────────────────────────────────────────────────
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastRack').appendChild(el);
+  setTimeout(() => el.remove(), 2700);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EVENT LISTENERS
+// ─────────────────────────────────────────────────────────────
+document.getElementById('sessionDate').addEventListener('change', e => { S.date = e.target.value; });
+document.getElementById('sessionStart').addEventListener('change', e => { S.startTime = e.target.value; renderTimelines(); });
+document.getElementById('warmupDuration').addEventListener('input', e => { S.warmupDur = parseInt(e.target.value)||20; renderTimelines(); });
+document.getElementById('warmupNotes').addEventListener('input', e => { S.warmupNotes = e.target.value; });
+document.getElementById('sessionNotes').addEventListener('input', e => { S.sessionNotes = e.target.value; });
+document.getElementById('sessionTitle').addEventListener('input', e => { S.title = e.target.textContent; });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['pickerBackdrop','videoBackdrop','editorBackdrop','mgrBackdrop','shareBackdrop'].forEach(closeModal);
+    roCloseVideo();
+    roCloseRequest();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────────────
+(async function init() {
+  if (await tryReadOnlyMode()) return;
+
+  S.date = new Date().toISOString().slice(0,10);
+  try {
+    const raw = localStorage.getItem('ebc_v2');
+    if (raw) Object.assign(S, JSON.parse(raw));
+  } catch(e){}
+  renderAll();
+  renderPickerCats('');
+  if (S.firebaseUrl) fbStartPolling();
+  setInterval(() => { captureInputs(); localStorage.setItem('ebc_v2', JSON.stringify(S)); }, 60000);
+})();
+</script>
+</body>
+</html>
