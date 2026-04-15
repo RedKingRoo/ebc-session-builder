@@ -1330,6 +1330,7 @@ let S = {
 };
 
 const BULLPEN_TIMES = ['18:20','18:40','19:00','19:20','19:40'];
+const APP_BASE_URL  = 'https://redkingroo.github.io/ebc-session-builder/';
 
 let pickerTarget = 'field';
 let bullpenOpen  = true;
@@ -2212,8 +2213,7 @@ function submitReq() {
   // then show sharing options so the player can send the link to their coach
   const roData     = window._roData || {};
   const updated    = { ...roData, bullpenRequests: [...(roData.bullpenRequests || []), req] };
-  const relayUrl   = window.location.href.split('#')[0]
-    + '#s=' + LZString.compressToEncodedURIComponent(JSON.stringify(updated));
+  const relayUrl   = APP_BASE_URL + '#s=' + LZString.compressToEncodedURIComponent(JSON.stringify(updated));
 
   const contact    = (window._roSession || {}).contact || '';
   const sessionLbl = [roData.title, roData.date].filter(Boolean).join(' \u2013 ');
@@ -2454,13 +2454,13 @@ async function publishSession() {
 
 function stableShareUrl() {
   const date = S.date || new Date().toISOString().slice(0,10);
-  return window.location.href.split('#')[0] + '#live=' + date;
+  return APP_BASE_URL + '#live=' + date;
 }
 
 function legacyShareUrl() {
   const json       = JSON.stringify(sessionPayload());
   const compressed = LZString.compressToEncodedURIComponent(json);
-  return window.location.href.split('#')[0] + '#s=' + compressed;
+  return APP_BASE_URL + '#s=' + compressed;
 }
 
 function openShareModal() {
