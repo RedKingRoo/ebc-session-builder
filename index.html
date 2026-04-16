@@ -1398,7 +1398,7 @@ let S = {
   bullpenRequests:    [],   // [{id, name, team, type, workingOn, ts}]
   bullpenAllocations: {},   // {'18:20': {pitcher:{name,team,workingOn,reqId}|null, catcher:{...}|null}}
   coachContact: '',
-  firebaseUrl:  '',
+  firebaseUrl:  'https://ebc-bullpen-default-rtdb.europe-west1.firebasedatabase.app',
   custom: [...CUSTOM_DRILLS],
   overrides: {...VIDEO_OVERRIDES},
   _uid: 1
@@ -2948,15 +2948,7 @@ document.addEventListener('keydown', e => {
 (async function init() {
   if (await tryReadOnlyMode()) return;
 
-  // Clear stale hardcoded Firebase URL from any older saved state
-  try {
-    const raw = localStorage.getItem('ebc_v2');
-    if (raw) {
-      const saved = JSON.parse(raw);
-      const staleUrl = 'https://ebc-bullpen-default-rtdb.europe-west1.firebasedatabase.app';
-      if (saved.firebaseUrl === staleUrl) { saved.firebaseUrl = ''; localStorage.setItem('ebc_v2', JSON.stringify(saved)); }
-    }
-  } catch(e){}
+
   S.date = new Date().toISOString().slice(0,10);
   try {
     const raw = localStorage.getItem('ebc_v2');
