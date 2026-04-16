@@ -907,6 +907,116 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
   .print-video-link { display: flex !important; align-items: center; gap: 6px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #eee; font-size: 11px; color: #444; }
   .print-video-link a { color: #0055cc; word-break: break-all; }
 }
+
+/* ================================================================
+   MOBILE  (≤ 768px) — builder only; read-only view has its own layout
+================================================================ */
+@media (max-width: 768px) {
+
+  /* ── Allow the whole page to scroll vertically ── */
+  body { overflow-y: auto; overflow-x: hidden; }
+  #app  { height: auto; min-height: 100vh; }
+
+  /* ── Header: two rows ── */
+  .app-header {
+    height: auto; flex-wrap: wrap;
+    padding: 8px 12px; gap: 7px;
+    position: sticky; top: 0; z-index: 30;
+  }
+  .logo-badge { font-size: 12px; }
+  .session-title { font-size: 14px; }
+  /* Hide separators and clock on mobile */
+  .header-sep, .live-clock { display: none; }
+  /* Date + Start wrap onto second row */
+  .header-field { font-size: 11px; }
+  .header-field input { height: 26px; font-size: 11px; }
+  /* Action buttons: scrollable strip on their own row */
+  .header-actions {
+    width: 100%; margin-left: 0;
+    overflow-x: auto; padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .header-actions .btn { height: 28px; font-size: 11px; padding: 0 9px; flex-shrink: 0; }
+
+  /* ── Body: stack vertically ── */
+  .app-body { flex-direction: column; overflow: visible; }
+
+  /* ── Sidebar: full width strip ── */
+  .sidebar {
+    width: 100%; border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-y: visible; padding: 10px;
+    /* Two-column card grid on mobile */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  /* Session Notes card spans full width */
+  .sidebar .card:last-child { grid-column: 1 / -1; }
+
+  /* ── Columns: stack vertically ── */
+  .columns-area {
+    grid-template-columns: 1fr;
+    overflow: visible; height: auto;
+  }
+  .group-col {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow: visible; height: auto;
+  }
+  .group-col:last-child { border-bottom: none; }
+  .drill-list {
+    overflow: visible; height: auto;
+    max-height: none;
+  }
+
+  /* ── Bullpen bar: auto height, panels stacked ── */
+  .bullpen-bar {
+    height: auto; border-top: 1px solid var(--border);
+  }
+  .bullpen-bar.collapsed { height: 38px; overflow: hidden; }
+  .bullpen-hd {
+    flex-wrap: wrap; gap: 6px; padding: 8px 10px;
+  }
+  /* Hide Firebase URL + status on mobile — coaches configure on desktop */
+  #fbUrlLabel, #firebaseUrl, #fbStatus,
+  .btn-icon[title="Refresh requests from Firebase"] { display: none; }
+  .bullpen-body { flex-direction: column; overflow: visible; }
+  .bp-requests {
+    width: 100%; border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow: visible; max-height: none;
+  }
+  .bp-slots { width: 100%; overflow: visible; }
+  .bp-req-list, .bp-slot-list {
+    overflow: visible; max-height: none;
+  }
+
+  /* ── Modals: full screen on mobile ── */
+  .backdrop { align-items: flex-end; }
+  .panel {
+    width: 100vw; height: 92vh;
+    border-left: none; border-radius: 14px 14px 0 0;
+    animation: slideUp .22s ease;
+  }
+  .panel-center {
+    width: 96vw; max-height: 92vh;
+    border-radius: 14px;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+
+  /* ── Drill picker targets: stack on small screens ── */
+  .picker-targets { gap: 6px; }
+  .pt-btn { font-size: 12px; padding: 7px 4px; }
+
+  /* ── Misc touch-friendliness ── */
+  .btn-icon { width: 32px; height: 32px; }
+  .equip-chip { padding: 3px 10px; font-size: 11px; }
+  .add-drill-btn { padding: 11px 0; font-size: 13px; }
+}
 </style>
 </head>
 <body>
@@ -1039,11 +1149,11 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
       <div class="group-dot" style="background:var(--purple)"></div>
       <span class="bullpen-hd-title">BULLPEN SIGN-UP</span>
       <div class="header-sep" style="height:18px"></div>
-      <span style="font-size:11px;color:var(--text-3);flex-shrink:0">Coach contact:</span>
+      <span id="coachContactLabel" style="font-size:11px;color:var(--text-3);flex-shrink:0">Coach contact:</span>
       <input type="text" id="coachContact" placeholder="email or phone…"
         style="width:160px;height:24px;font-size:11.5px" oninput="S.coachContact=this.value">
       <div class="header-sep" style="height:18px"></div>
-      <span style="font-size:11px;color:var(--text-3);flex-shrink:0">Firebase URL:</span>
+      <span id="fbUrlLabel" style="font-size:11px;color:var(--text-3);flex-shrink:0">Firebase URL:</span>
       <input type="url" id="firebaseUrl" placeholder="https://your-project.firebaseio.com"
         style="flex:1;min-width:180px;max-width:300px;height:24px;font-size:11.5px"
         oninput="S.firebaseUrl=this.value.trim().replace(/\/$/,'');fbStatusUpdate();if(S.firebaseUrl)fbStartPolling()">
