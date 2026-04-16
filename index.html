@@ -2954,8 +2954,8 @@ document.addEventListener('keydown', e => {
     const raw = localStorage.getItem('ebc_v2');
     if (raw) {
       const saved = JSON.parse(raw);
-      // Only restore firebaseUrl if the user had explicitly saved it
-      // (guard against old hardcoded default being in storage)
+      // Don't let a blank saved firebaseUrl overwrite the hardcoded default
+      if (!saved.firebaseUrl) delete saved.firebaseUrl;
       Object.assign(S, saved);
     }
   } catch(e){}
