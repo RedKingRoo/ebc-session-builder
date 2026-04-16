@@ -2954,11 +2954,12 @@ document.addEventListener('keydown', e => {
     const raw = localStorage.getItem('ebc_v2');
     if (raw) {
       const saved = JSON.parse(raw);
-      // Don't let a blank saved firebaseUrl overwrite the hardcoded default
-      if (!saved.firebaseUrl) delete saved.firebaseUrl;
       Object.assign(S, saved);
     }
   } catch(e){}
+  // Always fall back to hardcoded default if URL is missing
+  const DEFAULT_FB = 'https://ebc-bullpen-default-rtdb.europe-west1.firebasedatabase.app';
+  if (!S.firebaseUrl) S.firebaseUrl = DEFAULT_FB;
   renderAll();
   renderPickerCats('');
   // Only start polling if a URL is present AND non-empty
