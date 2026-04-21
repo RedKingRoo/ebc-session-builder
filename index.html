@@ -1038,6 +1038,13 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
   transition: all .15s; flex-shrink: 0;
 }
 .session-item-load:hover { background: var(--accent); color: #fff; border-color: transparent; }
+.session-item-delete {
+  font-size: 13px; padding: 3px 7px;
+  border-radius: var(--r); border: 1px solid var(--border);
+  color: var(--text-3); background: none; cursor: pointer;
+  transition: all .15s; flex-shrink: 0;
+}
+.session-item-delete:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
 .sessions-empty { padding: 24px 14px; text-align: center; color: var(--text-3); font-size: 13px; }
 /* Cloud save indicator in header */
 #saveBtn.saving { opacity: .6; pointer-events: none; }
@@ -1365,8 +1372,13 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
       <h2>Saved Sessions</h2>
       <button class="btn-icon" onclick="closeModal('sessionsBackdrop')">✕</button>
     </div>
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <input type="search" id="sessionsSearch" placeholder="Search sessions…"
+        style="width:100%;height:32px;padding:0 10px;font-size:13px"
+        oninput="filterSessionsList(this.value)">
+    </div>
     <div class="panel-body" style="padding:0">
-      <div id="sessionsList" style="padding:12px 14px;min-height:80px"></div>
+      <div id="sessionsList" style="min-height:80px"></div>
     </div>
     <div class="panel-ft" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
       <span style="font-size:10px;color:var(--text-3)" id="sessionsStatus"></span>
@@ -2151,15 +2163,33 @@ function captureInputs() {
 
 let _lastSavedHash = '';
 let _sessionPollTimer = null;
+let _loadedSessionKey = null; // tracks which Firebase key is currently loaded
+
+function slugify(str) {
+  return str.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 40);
+}
+
+function sessionKey(date, title) {
+  const d   = (date || new Date().toISOString().slice(0,10)).replace(/[^0-9\-]/g,'');
+  const slug = slugify(title || 'session');
+  return slug ? `${d}_${slug}` : d;
+}
 
 function sessionHash(s) {
   // Simple change-detection hash based on drills + key fields
   return JSON.stringify([s.field, s.off, s.title, s.date, s.warmupNotes, s.sessionNotes]);
 }
 
-function sessionDbUrl(date) {
-  const d = (date || S.date || new Date().toISOString().slice(0,10)).replace(/[^0-9\-]/g,'');
-  return `${S.firebaseUrl}/ebc/sessions/${d}.json`;
+function sessionDbUrl(keyOrDate) {
+  // If it looks like a full key (contains underscore) use as-is, otherwise treat as date
+  const key = keyOrDate || _loadedSessionKey || S.date || new Date().toISOString().slice(0,10);
+  const safeKey = key.replace(/[^a-z0-9\-_]/gi, '');
+  return `${S.firebaseUrl}/ebc/sessions/${safeKey}.json`;
 }
 
 function openSaveModal() {
@@ -2179,11 +2209,14 @@ async function confirmSaveSession() {
   if (!name) { toast('Please enter a session name', 'err'); return; }
   if (!date) { toast('Please select a date', 'err'); return; }
 
-  // Apply the name and date to the session
+  // Apply to session state
   S.title = name;
   S.date  = date;
   document.getElementById('sessionTitle').textContent = name;
   document.getElementById('sessionDate').value = date;
+
+  // Set the key for this save (date + name slug)
+  _loadedSessionKey = sessionKey(date, name);
 
   closeModal('saveSessionBackdrop');
   await saveSession();
@@ -2255,13 +2288,18 @@ async function openSessionsModal() {
     listEl.innerHTML = dates.map(d => {
       const session  = data[d] || {};
       const title    = session.title || 'Untitled Session';
-      const isActive = d === S.date;
+      const isActive = d === _loadedSessionKey;
+      // Extract date portion from key for display (key may be date or date_slug)
+      const displayDate = d.split('_')[0];
       return `<div class="session-item" onclick="loadSessionByDate('${d}')">
         <div style="flex:1;min-width:0">
-          <div class="session-item-date">${formatSessionDate(d)}</div>
-          <div class="session-item-title">${escHtml(title)}${isActive ? ' <span style="color:var(--text-3);font-size:10px">← active</span>' : ''}</div>
+          <div class="session-item-date">${formatSessionDate(displayDate)}</div>
+          <div class="session-item-title">${escHtml(title)}${isActive ? ' <span style="color:var(--text-3);font-size:10px">← loaded</span>' : ''}</div>
         </div>
-        <button class="session-item-load" onclick="event.stopPropagation();loadSessionByDate('${d}')">Load</button>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="session-item-load" onclick="event.stopPropagation();loadSessionByDate('${d}')">Load</button>
+          <button class="session-item-delete" onclick="event.stopPropagation();deleteSession('${d}')" title="Delete session">🗑</button>
+        </div>
       </div>`;
     }).join('');
 
@@ -2271,28 +2309,28 @@ async function openSessionsModal() {
   }
 }
 
-async function loadSessionByDate(date) {
+async function loadSessionByDate(key) {
   closeModal('sessionsBackdrop');
   toast('Loading session…', '');
   try {
-    const res  = await fetch(sessionDbUrl(date));
+    const res  = await fetch(sessionDbUrl(key));
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     if (!data) { toast('Session not found', 'err'); return; }
-    applyLoadedSession(data);
+    applyLoadedSession(data, key);
     toast('Session loaded ✓', 'ok');
-    // Start watching this session for changes from other coaches
-    startSessionWatch(date);
+    startSessionWatch(key);
   } catch(e) {
     toast('Could not load session', 'err');
     console.log('Load error:', e);
   }
 }
 
-function applyLoadedSession(data) {
+function applyLoadedSession(data, key) {
   const fb = S.firebaseUrl; // preserve Firebase URL
   Object.assign(S, data);
   if (!S.firebaseUrl) S.firebaseUrl = fb;
+  _loadedSessionKey = key || null;
   _lastSavedHash = sessionHash(S);
   renderAll();
   document.getElementById('updateBanner').classList.remove('show');
@@ -2319,6 +2357,32 @@ function startSessionWatch(date) {
       }
     } catch(e) {}
   }, 30000);
+}
+
+async function deleteSession(key) {
+  const displayDate = key.split('_')[0];
+  if (!confirm(`Delete the session "${key.split('_').slice(1).join(' ').replace(/-/g,' ') || formatSessionDate(displayDate)}"?\n\nThis cannot be undone.`)) return;
+  try {
+    const res = await fetch(sessionDbUrl(key), { method: 'DELETE' });
+    if (!res.ok) throw new Error(res.status);
+    // If this was the loaded session, clear the tracker
+    if (_loadedSessionKey === key) _loadedSessionKey = null;
+    toast('Session deleted', 'ok');
+    // Refresh the list
+    openSessionsModal();
+  } catch(e) {
+    toast('Delete failed — check connection', 'err');
+    console.log('Delete error:', e);
+  }
+}
+
+function filterSessionsList(query) {
+  const items = document.querySelectorAll('#sessionsList .session-item');
+  const q = query.toLowerCase();
+  items.forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
 }
 
 function formatSessionDate(d) {
