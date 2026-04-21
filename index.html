@@ -1017,6 +1017,42 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
   .equip-chip { padding: 3px 10px; font-size: 11px; }
   .add-drill-btn { padding: 11px 0; font-size: 13px; }
 }
+
+/* Sessions modal */
+.session-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border-dim);
+  transition: background .12s; cursor: pointer;
+}
+.session-item:last-child { border-bottom: none; }
+.session-item:hover { background: var(--bg-raised); }
+.session-item-date {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+  font-weight: 700; letter-spacing: .04em; min-width: 90px; flex-shrink: 0;
+}
+.session-item-title { font-size: 13px; color: var(--text-2); flex: 1; }
+.session-item-load {
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: var(--r); border: 1px solid var(--border);
+  color: var(--text-2); background: none; cursor: pointer;
+  transition: all .15s; flex-shrink: 0;
+}
+.session-item-load:hover { background: var(--accent); color: #fff; border-color: transparent; }
+.sessions-empty { padding: 24px 14px; text-align: center; color: var(--text-3); font-size: 13px; }
+/* Cloud save indicator in header */
+#saveBtn.saving { opacity: .6; pointer-events: none; }
+#saveBtn.saved  { color: var(--text-2); }
+/* Update notification banner */
+#updateBanner {
+  display: none; position: fixed; bottom: 58px; left: 50%;
+  transform: translateX(-50%); z-index: 200;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 8px 16px;
+  font-size: 12.5px; display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow-sm);
+}
+#updateBanner.show { display: flex; }
+
 </style>
 </head>
 <body>
@@ -1039,8 +1075,8 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
     <div class="live-clock" id="liveClock"></div>
     <div class="header-actions">
       <button class="btn btn-ghost no-print" onclick="openModal('mgrBackdrop')">📋 Library</button>
-      <button class="btn btn-ghost no-print" onclick="loadSession()">↑ Load</button>
-      <button class="btn btn-ghost no-print" onclick="saveSession()">↓ Save</button>
+      <button class="btn btn-ghost no-print" onclick="openSessionsModal()">📂 Sessions</button>
+      <button class="btn btn-ghost no-print" id="saveBtn" onclick="saveSession()">☁ Save</button>
       <button class="btn btn-ghost no-print" onclick="openShareModal()">🔗 Share link</button>
       <button class="btn btn-primary no-print" onclick="publishSession()">&#9654; Publish</button>
       <button class="btn btn-ghost no-print" onclick="doPrint()">🖨 Print</button>
@@ -1181,6 +1217,12 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
     </div>
   </div>
 
+<!-- Update notification -->
+<div id="updateBanner">
+  <span>&#8635; Session updated by another coach</span>
+  <button class="btn btn-primary" style="height:26px;font-size:11px" onclick="pullLatestSession()">Load latest</button>
+  <button class="btn-icon" onclick="document.getElementById('updateBanner').classList.remove('show')" style="font-size:11px">✕</button>
+</div>
 </div><!-- /app -->
 
 <!-- ═══════════════════════════════════════════════════
@@ -1284,6 +1326,25 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
     <div class="panel-ft">
       <button class="btn btn-ghost" onclick="closeModal('shareBackdrop')">Close</button>
       <button class="btn btn-primary" id="copyLinkBtn" onclick="copyShareLink()">📋 Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SESSIONS MODAL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop centered no-print" id="sessionsBackdrop" onclick="backdropClose(event,'sessionsBackdrop')">
+  <div class="panel panel-center" style="max-width:520px">
+    <div class="panel-hd">
+      <h2>Saved Sessions</h2>
+      <button class="btn-icon" onclick="closeModal('sessionsBackdrop')">✕</button>
+    </div>
+    <div class="panel-body" style="padding:0">
+      <div id="sessionsList" style="padding:12px 14px;min-height:80px"></div>
+    </div>
+    <div class="panel-ft" style="justify-content:space-between">
+      <span style="font-size:11px;color:var(--text-3)" id="sessionsStatus"></span>
+      <button class="btn btn-ghost" onclick="closeModal('sessionsBackdrop')">Close</button>
     </div>
   </div>
 </div>
@@ -2054,20 +2115,147 @@ function captureInputs() {
   S.coachContact = document.getElementById('coachContact').value;
   S.firebaseUrl  = (document.getElementById('firebaseUrl').value||'').trim().replace(/\/$/, '');
 }
-function saveSession() {
-  captureInputs();
-  localStorage.setItem('ebc_v2', JSON.stringify(S));
-  toast('Session saved ✓','ok');
+// ─────────────────────────────────────────────────────────────
+//  CENTRALISED SESSION SAVE / LOAD  (Firebase)
+// ─────────────────────────────────────────────────────────────
+
+let _lastSavedHash = '';
+let _sessionPollTimer = null;
+
+function sessionHash(s) {
+  // Simple change-detection hash based on drills + key fields
+  return JSON.stringify([s.field, s.off, s.title, s.date, s.warmupNotes, s.sessionNotes]);
 }
-function loadSession() {
-  const raw = localStorage.getItem('ebc_v2');
-  if (!raw) { toast('No saved session found','err'); return; }
+
+function sessionDbUrl(date) {
+  const d = (date || S.date || new Date().toISOString().slice(0,10)).replace(/[^0-9\-]/g,'');
+  return `${S.firebaseUrl}/ebc/sessions/${d}.json`;
+}
+
+async function saveSession() {
+  if (!S.firebaseUrl) { toast('No Firebase URL configured', 'err'); return; }
+  const btn = document.getElementById('saveBtn');
   try {
-    Object.assign(S, JSON.parse(raw));
-    renderAll();
-    toast('Session loaded ✓','ok');
-  } catch(e) { toast('Could not load session','err'); }
+    captureInputs();
+    if (btn) { btn.textContent = '☁ Saving…'; btn.classList.add('saving'); }
+    const payload = sessionPayload();
+    const res = await fetch(sessionDbUrl(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(res.status);
+    _lastSavedHash = sessionHash(S);
+    // Also cache locally as fallback
+    try { localStorage.setItem('ebc_v2_saved', JSON.stringify(payload)); } catch(e){}
+    toast('Session saved ✓', 'ok');
+  } catch(e) {
+    toast('Save failed — check connection', 'err');
+    console.log('Save error:', e);
+  } finally {
+    if (btn) { btn.textContent = '☁ Save'; btn.classList.remove('saving'); }
+  }
 }
+
+async function openSessionsModal() {
+  openModal('sessionsBackdrop');
+  const listEl   = document.getElementById('sessionsList');
+  const statusEl = document.getElementById('sessionsStatus');
+  listEl.innerHTML = '<div class="sessions-empty">Loading sessions…</div>';
+  statusEl.textContent = '';
+
+  if (!S.firebaseUrl) {
+    listEl.innerHTML = '<div class="sessions-empty">No Firebase URL configured.<br>Add it in the Bullpen bar.</div>';
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${S.firebaseUrl}/ebc/sessions.json?shallow=true`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+
+    if (!data) {
+      listEl.innerHTML = '<div class="sessions-empty">No saved sessions found.<br>Click ☁ Save to save your first session.</div>';
+      return;
+    }
+
+    // Sort dates descending
+    const dates = Object.keys(data).sort((a,b) => b.localeCompare(a));
+    statusEl.textContent = dates.length + ' session' + (dates.length !== 1 ? 's' : '') + ' saved';
+
+    listEl.innerHTML = dates.map(d => {
+      const isToday = d === (S.date || new Date().toISOString().slice(0,10));
+      return `<div class="session-item" onclick="loadSessionByDate('${d}')">
+        <span class="session-item-date">${formatSessionDate(d)}</span>
+        <span class="session-item-title">${isToday ? '← current date' : ''}</span>
+        <button class="session-item-load" onclick="event.stopPropagation();loadSessionByDate('${d}')">Load</button>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    listEl.innerHTML = '<div class="sessions-empty">Could not reach Firebase.<br>Check your connection.</div>';
+    console.log('Sessions list error:', e);
+  }
+}
+
+async function loadSessionByDate(date) {
+  closeModal('sessionsBackdrop');
+  toast('Loading session…', '');
+  try {
+    const res  = await fetch(sessionDbUrl(date));
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (!data) { toast('Session not found', 'err'); return; }
+    applyLoadedSession(data);
+    toast('Session loaded ✓', 'ok');
+    // Start watching this session for changes from other coaches
+    startSessionWatch(date);
+  } catch(e) {
+    toast('Could not load session', 'err');
+    console.log('Load error:', e);
+  }
+}
+
+function applyLoadedSession(data) {
+  const fb = S.firebaseUrl; // preserve Firebase URL
+  Object.assign(S, data);
+  if (!S.firebaseUrl) S.firebaseUrl = fb;
+  _lastSavedHash = sessionHash(S);
+  renderAll();
+  document.getElementById('updateBanner').classList.remove('show');
+}
+
+async function pullLatestSession() {
+  document.getElementById('updateBanner').classList.remove('show');
+  await loadSessionByDate(S.date);
+}
+
+function startSessionWatch(date) {
+  if (_sessionPollTimer) clearInterval(_sessionPollTimer);
+  _sessionPollTimer = setInterval(async () => {
+    if (!S.firebaseUrl) return;
+    try {
+      const res  = await fetch(sessionDbUrl(date));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data) return;
+      const remoteHash = sessionHash(data);
+      if (remoteHash !== _lastSavedHash && remoteHash !== sessionHash(S)) {
+        // Another coach has saved changes — show notification
+        document.getElementById('updateBanner').classList.add('show');
+      }
+    } catch(e) {}
+  }, 30000);
+}
+
+function formatSessionDate(d) {
+  try {
+    return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  } catch(e) { return d; }
+}
+
+// Legacy local-only load (fallback if offline)
+function loadSession() { openSessionsModal(); }
 
 // ─────────────────────────────────────────────────────────────
 //  EXPORT
@@ -3046,7 +3234,7 @@ document.getElementById('sessionTitle').addEventListener('input', e => { S.title
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['pickerBackdrop','videoBackdrop','editorBackdrop','mgrBackdrop','shareBackdrop'].forEach(closeModal);
+    ['pickerBackdrop','videoBackdrop','editorBackdrop','mgrBackdrop','shareBackdrop','sessionsBackdrop'].forEach(closeModal);
     roCloseVideo();
     roCloseRequest();
   }
@@ -3061,7 +3249,7 @@ document.addEventListener('keydown', e => {
 
   S.date = new Date().toISOString().slice(0,10);
   try {
-    const raw = localStorage.getItem('ebc_v2');
+    const raw = localStorage.getItem('ebc_v2_auto') || localStorage.getItem('ebc_v2');
     if (raw) {
       const saved = JSON.parse(raw);
       Object.assign(S, saved);
@@ -3074,7 +3262,25 @@ document.addEventListener('keydown', e => {
   renderPickerCats('');
   // Only start polling if a URL is present AND non-empty
   if (S.firebaseUrl && S.firebaseUrl.trim()) fbStartPolling();
-  setInterval(() => { captureInputs(); localStorage.setItem('ebc_v2', JSON.stringify(S)); }, 60000);
+  setInterval(async () => {
+    captureInputs();
+    // Autosave to localStorage always
+    try { localStorage.setItem('ebc_v2_auto', JSON.stringify(S)); } catch(e){}
+    // Autosave to Firebase if URL is set and content has changed
+    if (S.firebaseUrl && S.date) {
+      const h = sessionHash(S);
+      if (h !== _lastSavedHash) {
+        try {
+          const res = await fetch(sessionDbUrl(), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sessionPayload())
+          });
+          if (res.ok) { _lastSavedHash = h; }
+        } catch(e) {}
+      }
+    }
+  }, 60000);
 })();
 
 </script>
