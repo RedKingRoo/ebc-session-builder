@@ -1027,10 +1027,10 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
 .session-item:last-child { border-bottom: none; }
 .session-item:hover { background: var(--bg-raised); }
 .session-item-date {
-  font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
-  font-weight: 700; letter-spacing: .04em; min-width: 90px; flex-shrink: 0;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: .04em;
 }
-.session-item-title { font-size: 13px; color: var(--text-2); flex: 1; }
+.session-item-title { font-size: 12px; color: var(--text-2); }
 .session-item-load {
   font-size: 11px; font-weight: 600; padding: 3px 10px;
   border-radius: var(--r); border: 1px solid var(--border);
@@ -1076,7 +1076,7 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
     <div class="header-actions">
       <button class="btn btn-ghost no-print" onclick="openModal('mgrBackdrop')">📋 Library</button>
       <button class="btn btn-ghost no-print" onclick="openSessionsModal()">📂 Sessions</button>
-      <button class="btn btn-ghost no-print" id="saveBtn" onclick="saveSession()">☁ Save</button>
+      <button class="btn btn-ghost no-print" id="saveBtn" onclick="openSaveModal()">☁ Save</button>
       <button class="btn btn-ghost no-print" onclick="openShareModal()">🔗 Share link</button>
       <button class="btn btn-primary no-print" onclick="publishSession()">&#9654; Publish</button>
       <button class="btn btn-ghost no-print" onclick="doPrint()">🖨 Print</button>
@@ -1326,6 +1326,32 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
     <div class="panel-ft">
       <button class="btn btn-ghost" onclick="closeModal('shareBackdrop')">Close</button>
       <button class="btn btn-primary" id="copyLinkBtn" onclick="copyShareLink()">📋 Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SAVE SESSION MODAL
+═══════════════════════════════════════════════════ -->
+<div class="backdrop centered no-print" id="saveSessionBackdrop" onclick="backdropClose(event,'saveSessionBackdrop')">
+  <div class="panel panel-center" style="max-width:420px">
+    <div class="panel-hd">
+      <h2>Save Session</h2>
+      <button class="btn-icon" onclick="closeModal('saveSessionBackdrop')">✕</button>
+    </div>
+    <div class="panel-body" style="padding:16px">
+      <div class="form-grp">
+        <label class="form-lbl">Session Name</label>
+        <input type="text" class="form-inp" id="saveSessionName" placeholder="e.g. Tuesday Training — A vs AAA">
+      </div>
+      <div class="form-grp" style="margin-bottom:0">
+        <label class="form-lbl">Date</label>
+        <input type="date" class="form-inp" id="saveSessionDate">
+      </div>
+    </div>
+    <div class="panel-ft">
+      <button class="btn btn-ghost" onclick="closeModal('saveSessionBackdrop')">Cancel</button>
+      <button class="btn btn-primary" id="confirmSaveBtn" onclick="confirmSaveSession()">☁ Save to Cloud</button>
     </div>
   </div>
 </div>
@@ -2136,6 +2162,33 @@ function sessionDbUrl(date) {
   return `${S.firebaseUrl}/ebc/sessions/${d}.json`;
 }
 
+function openSaveModal() {
+  captureInputs();
+  // Pre-fill with current session name and date
+  const nameEl = document.getElementById('saveSessionName');
+  const dateEl = document.getElementById('saveSessionDate');
+  if (nameEl) nameEl.value = S.title || 'EBC Training Session';
+  if (dateEl) dateEl.value = S.date || new Date().toISOString().slice(0,10);
+  openModal('saveSessionBackdrop');
+  setTimeout(() => nameEl && nameEl.select(), 50);
+}
+
+async function confirmSaveSession() {
+  const name = document.getElementById('saveSessionName').value.trim();
+  const date = document.getElementById('saveSessionDate').value;
+  if (!name) { toast('Please enter a session name', 'err'); return; }
+  if (!date) { toast('Please select a date', 'err'); return; }
+
+  // Apply the name and date to the session
+  S.title = name;
+  S.date  = date;
+  document.getElementById('sessionTitle').textContent = name;
+  document.getElementById('sessionDate').value = date;
+
+  closeModal('saveSessionBackdrop');
+  await saveSession();
+}
+
 async function saveSession() {
   if (!S.firebaseUrl) { toast('No Firebase URL configured', 'err'); return; }
   const btn = document.getElementById('saveBtn');
@@ -2148,13 +2201,12 @@ async function saveSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error(`${res.status} — ${res.status === 401 || res.status === 403 ? 'Firebase rules denied access' : 'check connection'}`);
     _lastSavedHash = sessionHash(S);
-    // Also cache locally as fallback
     try { localStorage.setItem('ebc_v2_saved', JSON.stringify(payload)); } catch(e){}
     toast('Session saved ✓', 'ok');
   } catch(e) {
-    toast('Save failed — check connection', 'err');
+    toast('Save failed — ' + (e.message || 'check connection'), 'err');
     console.log('Save error:', e);
   } finally {
     if (btn) { btn.textContent = '☁ Save'; btn.classList.remove('saving'); }
@@ -2174,16 +2226,25 @@ async function openSessionsModal() {
   }
 
   try {
-    const res  = await fetch(`${S.firebaseUrl}/ebc/sessions.json?shallow=true`);
+    // Fetch full sessions so we can show titles
+    const res = await fetch(`${S.firebaseUrl}/ebc/sessions.json`);
     if (res.status === 401 || res.status === 403) {
-      listEl.innerHTML = '<div class="sessions-empty">Firebase access denied.<br>Database rules may have expired.<br>Update rules in the Firebase console to<br><code style="font-size:11px;background:var(--bg-raised);padding:2px 6px;border-radius:3px">\".read\": true, \".write\": true</code></div>';
+      listEl.innerHTML = `<div class="sessions-empty">
+        <strong style="color:var(--text)">Firebase access denied</strong><br><br>
+        Your database rules have expired (30-day test mode limit).<br><br>
+        To fix: open <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a>
+        → your project → Realtime Database → Rules, and set:<br><br>
+        <code style="font-size:11px;background:var(--bg-raised);padding:4px 8px;border-radius:3px;display:inline-block;margin-top:4px">
+          ".read": true,<br>".write": true
+        </code>
+      </div>`;
       return;
     }
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
 
     if (!data) {
-      listEl.innerHTML = '<div class="sessions-empty">No saved sessions found.<br>Click ☁ Save to save your first session.</div>';
+      listEl.innerHTML = '<div class="sessions-empty">No saved sessions yet.<br>Click ☁ Save to save your first session.</div>';
       return;
     }
 
@@ -2192,10 +2253,14 @@ async function openSessionsModal() {
     statusEl.textContent = dates.length + ' session' + (dates.length !== 1 ? 's' : '') + ' saved';
 
     listEl.innerHTML = dates.map(d => {
-      const isToday = d === (S.date || new Date().toISOString().slice(0,10));
+      const session  = data[d] || {};
+      const title    = session.title || 'Untitled Session';
+      const isActive = d === S.date;
       return `<div class="session-item" onclick="loadSessionByDate('${d}')">
-        <span class="session-item-date">${formatSessionDate(d)}</span>
-        <span class="session-item-title">${isToday ? '← current date' : ''}</span>
+        <div style="flex:1;min-width:0">
+          <div class="session-item-date">${formatSessionDate(d)}</div>
+          <div class="session-item-title">${escHtml(title)}${isActive ? ' <span style="color:var(--text-3);font-size:10px">← active</span>' : ''}</div>
+        </div>
         <button class="session-item-load" onclick="event.stopPropagation();loadSessionByDate('${d}')">Load</button>
       </div>`;
     }).join('');
@@ -3242,7 +3307,7 @@ document.getElementById('sessionTitle').addEventListener('input', e => { S.title
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['pickerBackdrop','videoBackdrop','editorBackdrop','mgrBackdrop','shareBackdrop','sessionsBackdrop'].forEach(closeModal);
+    ['pickerBackdrop','videoBackdrop','editorBackdrop','mgrBackdrop','shareBackdrop','sessionsBackdrop','saveSessionBackdrop'].forEach(closeModal);
     roCloseVideo();
     roCloseRequest();
   }
