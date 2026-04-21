@@ -1342,9 +1342,12 @@ a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px
     <div class="panel-body" style="padding:0">
       <div id="sessionsList" style="padding:12px 14px;min-height:80px"></div>
     </div>
-    <div class="panel-ft" style="justify-content:space-between">
-      <span style="font-size:11px;color:var(--text-3)" id="sessionsStatus"></span>
-      <button class="btn btn-ghost" onclick="closeModal('sessionsBackdrop')">Close</button>
+    <div class="panel-ft" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <span style="font-size:10px;color:var(--text-3)" id="sessionsStatus"></span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost" style="font-size:11px" onclick="saveSession();openSessionsModal()">☁ Save current</button>
+        <button class="btn btn-ghost" onclick="closeModal('sessionsBackdrop')">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2113,7 +2116,8 @@ function captureInputs() {
   S.warmupNotes  = document.getElementById('warmupNotes').value;
   S.sessionNotes = document.getElementById('sessionNotes').value;
   S.coachContact = document.getElementById('coachContact').value;
-  S.firebaseUrl  = (document.getElementById('firebaseUrl').value||'').trim().replace(/\/$/, '');
+  // Note: S.firebaseUrl is NOT read here — it's kept in sync via the oninput handler
+  // so it is never accidentally overwritten by a hidden/empty input element
 }
 // ─────────────────────────────────────────────────────────────
 //  CENTRALISED SESSION SAVE / LOAD  (Firebase)
@@ -2171,6 +2175,10 @@ async function openSessionsModal() {
 
   try {
     const res  = await fetch(`${S.firebaseUrl}/ebc/sessions.json?shallow=true`);
+    if (res.status === 401 || res.status === 403) {
+      listEl.innerHTML = '<div class="sessions-empty">Firebase access denied.<br>Database rules may have expired.<br>Update rules in the Firebase console to<br><code style="font-size:11px;background:var(--bg-raised);padding:2px 6px;border-radius:3px">\".read\": true, \".write\": true</code></div>';
+      return;
+    }
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
 
