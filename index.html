@@ -2975,11 +2975,16 @@ async function publishSession() {
   const btn     = document.querySelector('[onclick="publishSession()"]');
   if (btn) { btn.textContent = 'Publishing…'; btn.disabled = true; }
   try {
+    // Always publish to 'current' — keeps the share URL permanently fixed
     const res = await fetch(
-      `${S.firebaseUrl}/ebc/sessions/${date}.json`,
+      `${S.firebaseUrl}/ebc/sessions/current.json`,
       { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }
     );
     if (!res.ok) throw new Error(res.status);
+    // Also archive under the session date so previous sessions remain loadable by date
+    fetch(`${S.firebaseUrl}/ebc/sessions/${date}.json`,
+      { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }
+    ).catch(() => {}); // silent — archive failure doesn't block the main publish
     toast('Session published \u2713', 'ok');
     // Auto-open share modal to show the stable link
     openShareModal();
@@ -2992,8 +2997,7 @@ async function publishSession() {
 }
 
 function stableShareUrl() {
-  const date = S.date || new Date().toISOString().slice(0,10);
-  return APP_BASE_URL + '#live=' + date;
+  return APP_BASE_URL + '#live=current';
 }
 
 function legacyShareUrl() {
@@ -3056,7 +3060,7 @@ function copyShareLink() {
 async function tryReadOnlyMode() {
   const hash = window.location.hash;
 
-  // ── New stable format: #live=YYYY-MM-DD ──
+  // ── Stable format: #live=current (or #live=YYYY-MM-DD for legacy date links) ──
   if (hash.startsWith('#live=')) {
     const date  = hash.slice(6);
     const fbUrl = 'https://ebc-bullpen-default-rtdb.europe-west1.firebasedatabase.app';
@@ -3097,9 +3101,9 @@ async function tryReadOnlyMode() {
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
                     height:100vh;gap:10px;color:var(--text-2);font-family:'Outfit',sans-serif;text-align:center;padding:20px">
           <img src="" class="ebc-logo-img" class="ebc-logo-img" style="height:48px;width:48px;filter:invert(1);mix-blend-mode:multiply" alt="EBC">
-          <span style="font-size:15px;color:var(--text)">Session not found</span>
-          <span style="font-size:13px">No published session found for <strong>${escHtml(date)}</strong>.<br>
-            Ask your coach to publish the session plan and reshare the link.</span>
+          <span style="font-size:15px;color:var(--text)">No session published yet</span>
+          <span style="font-size:13px">No session plan has been published yet.<br>
+            Ask your coach to publish the session plan.</span>
         </div>`;
       console.warn('Could not load session from Firebase:', e);
     }
