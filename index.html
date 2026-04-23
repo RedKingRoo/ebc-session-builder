@@ -1736,8 +1736,33 @@ function sessionAvail() {
   const end = (parseMin(S.startTime)||0) + 120;
   return end - ms;
 }
-function totalDur(arr) {
-  return arr.reduce((t,d) => t + (parseInt(d.dur)||20), 0);
+function calcUsedTime(arr) {
+  // Calculates actual session time used, accounting for concurrent (overlapping) drills.
+  // Drills with manually-set start times that overlap are merged into a single block.
+  if (!arr.length) return 0;
+  const base = mainStart() ?? 0;
+  let cursor = base;
+
+  const intervals = arr.map(sd => {
+    const dur = parseInt(sd.dur) || 20;
+    const s = sd.start ? (parseMin(sd.start) ?? cursor) : cursor;
+    cursor = s + dur;
+    return [s, s + dur];
+  });
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const merged = [[...intervals[0]]];
+  for (let i = 1; i < intervals.length; i++) {
+    const last = merged[merged.length - 1];
+    if (intervals[i][0] < last[1]) {
+      last[1] = Math.max(last[1], intervals[i][1]);
+    } else {
+      merged.push([...intervals[i]]);
+    }
+  }
+
+  return merged.reduce((t, [s, e]) => t + (e - s), 0);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1849,7 +1874,7 @@ function renderTimelines() {
   const avail = sessionAvail();
   ['field','off'].forEach(g => {
     const arr = g==='field' ? S.field : S.off;
-    const used = totalDur(arr);
+    const used = calcUsedTime(arr);
     const pct  = Math.min(100, avail > 0 ? (used/avail)*100 : 100);
     const over  = used > avail;
     const pfx  = g==='field' ? 'tlField' : 'tlOff';
